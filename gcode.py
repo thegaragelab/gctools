@@ -243,9 +243,10 @@ class ZLevel(NativeFilter):
     and all others are safe.
   """
 
-  def __init_(self, cutting = None, safe = None):
+  def __init__(self, cutting = None, safe = None):
     """ Save the (optional) parameters
     """
+    NativeFilter.__init__(self)
     self.cutting = cutting
     self.safe = safe
 
