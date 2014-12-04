@@ -32,6 +32,11 @@ def maxValue(a, b):
     return b
   return max(a, b)
 
+def floatVal(value):
+  """ Format a floating point value with sufficient detail for the router
+  """
+  return "%0.5f" % float(value)
+
 #----------------------------------------------------------------------------
 # Top level filter classes
 #----------------------------------------------------------------------------
@@ -233,7 +238,7 @@ class XFlip(FilterChain):
     midpoint = self.bounds.minx + ((self.bounds.maxx - self.bounds.minx) / 2)
     for code in line:
       if code[1] == 'Z':
-        code[2] = str((2 * midpoint) - float(code[2]))
+        code[2] = floatVal((2 * midpoint) - float(code[2]))
     return line
 
 class ZLevel(NativeFilter):
@@ -264,9 +269,9 @@ class ZLevel(NativeFilter):
       if code[1] == 'Z':
         val = float(code[2])
         if (val < 0.0) and (self.cutting is not None):
-          code[2] = str(self.cutting)
+          code[2] = floatVal(self.cutting)
         if (val > 0.0) and (self.safe is not None):
-          code[2] = str(self.safe)
+          code[2] = floatVal(self.safe)
     # Done
     return line
 
@@ -285,11 +290,11 @@ class Translate(NativeFilter):
     """
     for code in line:
       if (code[1] == 'X') and (self.dx is not None):
-        code[2] = str(float(code[2]) + self.dx)
+        code[2] = floatVal(float(code[2]) + self.dx)
       if (code[1] == 'Y') and (self.dy is not None):
-        code[2] = str(float(code[2]) + self.dy)
+        code[2] = floatVal(float(code[2]) + self.dy)
       if (code[1] == 'Z') and (self.dz is not None):
-        code[2] = str(float(code[2]) + self.dz)
+        code[2] = floatVal(float(code[2]) + self.dz)
     # Done
     return line
 
