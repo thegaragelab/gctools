@@ -270,6 +270,29 @@ class ZLevel(NativeFilter):
     # Done
     return line
 
+class Translate(NativeFilter):
+  """ Translate the cutting moves in X, Y and Z
+  """
+
+  def __init__(self, dx = None, dy = None, dz = None):
+    NativeFilter.__init__(self)
+    self.dx = dx
+    self.dy = dy
+    self.dz = dz
+
+  def transform(self, line):
+    """ Do the transformation on the co-ordinates
+    """
+    for code in line:
+      if (code[1] == 'X') and (self.dx is not None):
+        code[2] = str(float(code[2]) + self.dx)
+      if (code[1] == 'Y') and (self.dy is not None):
+        code[2] = str(float(code[2]) + self.dy)
+      if (code[1] == 'Z') and (self.dz is not None):
+        code[2] = str(float(code[2]) + self.dz)
+    # Done
+    return line
+
 #----------------------------------------------------------------------------
 # Top level helpers
 #----------------------------------------------------------------------------
