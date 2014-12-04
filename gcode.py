@@ -8,7 +8,11 @@ import re
 from subprocess import Popen, PIPE
 
 # Set up the regular expression for processing G-Code
-REGCODE = re.compile("(([A-Z])((-?[0-9]+)\.([0-9]+)?))|(\(.*\))")
+REGCODE = re.compile("(([A-Z])((-?[0-9]+)\.?([0-9]+)?))|(\(.*\))")
+
+# Unit names
+INCHES = "in"
+MM = "mm"
 
 #----------------------------------------------------------------------------
 # Helper functions
@@ -127,10 +131,10 @@ class FilterChain(Filter):
 
       This applies each filter in turn in the order they were given in the
       constructor.
-   """
-   for child in self._filters:
-     source = child.apply(source)
-   return source
+    """
+    for child in self._filters:
+      source = child.apply(source)
+    return source
 
 #----------------------------------------------------------------------------
 # Useful filters
@@ -165,7 +169,7 @@ class Overlay(ExternalFilter):
     self.source = source
     self.target = target
 
-def Bounds(NativeFilter):
+class Bounds(NativeFilter):
   """ Determine the bounds of the object
   """
 
@@ -177,6 +181,7 @@ def Bounds(NativeFilter):
     self.maxx = None
     self.maxy = None
     self.maxz = None
+    self.units = None
 
   def transform(self, line):
     """ Apply the transform and return the modified command list
@@ -191,17 +196,21 @@ def Bounds(NativeFilter):
     for code in line:
       if code[1] == 'X':
         self.minx = minValue(self.minx, float(code[2]))
-        self.maxx = minValue(self.maxx, float(code[2]))
+        self.maxx = maxValue(self.maxx, float(code[2]))
       elif code[1] == 'Y':
         self.miny = minValue(self.miny, float(code[2]))
-        self.maxy = minValue(self.maxy, float(code[2]))
+        self.maxy = maxValue(self.maxy, float(code[2]))
       elif code[1] == 'Z':
         self.minz = minValue(self.minz, float(code[2]))
-        self.maxz = minValue(self.maxz, float(code[2]))
+        self.maxz = maxValue(self.maxz, float(code[2]))
+      elif code[0] == 'G20':
+        self.units = INCHES
+      elif code[0] == 'G21':
+        self.units = MM
     # No actual transform done
-    return code
+    return line
 
-def XFlip(FilterChain):
+class XFlip(FilterChain):
   """ Flip the X axis around the horizontal center of the object
 
     This is a two pass filter - first it determines the bounds of the object
@@ -227,7 +236,7 @@ def XFlip(FilterChain):
         code[2] = str((2 * midpoint) - float(code[2]))
     return line
 
-def ZLevel(NativeFilter):
+class ZLevel(NativeFilter):
   """ Change the cutting level and/or safe level for Z
 
     Use with caution. This filter assume any Z value less than zero is cutting
@@ -269,7 +278,7 @@ def loadGCode(filename):
   """
   result = None
   with open(filename, "r") as input:
-    result = list([ strip(line) for line in input.readlines() ])
+    result = list([ line.strip() for line in input.readlines() ])
   return result
 
 def saveGCode(filename, lines):
@@ -291,18 +300,19 @@ def combine(*args, **kwargs):
       header - the header (as a list of lines) to use instead of the default
       footer - the footer (as a list of lines) to use instead of the default
   """
-  results = list()
-  if kwargs.haskey('header'):
-    results.extend(kwargs['header'])
-  else:
-    results.extend(DEFAULT_HEADER)
-  # Our filter function to strip unwanted codes
-  def transform(line):
-    # Check for 'go home' commands
+  pass
+#  results = list()
+#  if kwargs.haskey('header'):
+#    results.extend(kwargs['header'])
+#  else:
+#    results.extend(DEFAULT_HEADER)
+#  # Our filter function to strip unwanted codes
+#  def transform(line):
+#    # Check for 'go home' commands
+#    # Check for spindle and stop program commands
+#    for code in line:
+#      if code[0] in ("M02", "M03", "M05"):
+#        code[1] = ""
+#        code[2] = ""
+#  footer =
 
-    # Check for spindle and stop program commands
-    for code in line:
-      if code[0] in ("M02", "M03", "M05"):
-        code[1] = ""
-        code[2] = ""
-  footer =
