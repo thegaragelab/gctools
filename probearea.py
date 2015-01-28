@@ -35,10 +35,10 @@ G10 L20 P0 Z0
 G0 Z%0.4f
 """
 
-# Single probe step - use x, y, maxmove, safe
+# Single probe step - use x, y, maxmove, feedrate, safe
 GCODE_STEP = """
 G0 X%0.4f Y%0.4f
-G38.2 Z%0.4f F5
+G38.2 Z%0.4f F%0.4f
 G0 Z%0.4f
 """
 
@@ -62,6 +62,7 @@ if __name__ == "__main__":
   parser.add_option("-s", "--safe", action="store", type="float", dest="safe", default=5.0)
   parser.add_option("-r", "--random", action="store_true", dest="random", default=False)
   parser.add_option("-b", "--backwards", action="store_true", dest="backwards", default=False)
+  parser.add_option("-f", "--feedrate", action="store", type="float", dest="feedrate", default=127)
   options, args = parser.parse_args()
   # Make sure required arguments are present
   for req in ("width", "height"):
@@ -105,7 +106,7 @@ if __name__ == "__main__":
   output.write(GCODE_FIRST.strip() % (points[0][0], points[0][1], options.safe / 25.4, options.maxmove / 25.4, options.safe / 25.4, options.maxmove / 25.4, options.safe / 25.4) + "\n")
   # Do the individual probes
   for p in points:
-    output.write(GCODE_STEP.strip() % (p[0], p[1], options.maxmove / 25.4, options.safe / 25.4) + "\n")
+    output.write(GCODE_STEP.strip() % (p[0], p[1], options.maxmove / 25.4, options.feedrate / 25.4, options.safe / 25.4) + "\n")
   # Generate the suffix
   output.write(GCODE_SUFFIX.strip() % (options.safe / 25.4) + "\n")
   output.close()
