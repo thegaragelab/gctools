@@ -65,10 +65,7 @@ def getTabPoints(x1, x2, y1, y2, tabWidth, tool, tab):
   # Determine direction
   rev = False
   if x2 < x1:
-    rev = True
-    x = x1
-    x1 = x2
-    x2 = x
+    x2, x1, rev = x1, x2, True
   # Get the points
   start = ((x2 - x1) - (tabWidth * 5)) / 2
   points = [ (x1, y1), ]
@@ -194,9 +191,27 @@ if __name__ == "__main__":
     path
     ), )
   createSVG(prefix + "back.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
-
-  # TODO: Generate base, front and back panels and the side mounts
-  #print generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, basematerial, (True, None, None, None))
-
-  # TODO: Generate top, left and right panels and the side mounts
+  # TODO: Generate side mounts
+  # Generate the top
+  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.height + (4 * material), tabWidthW, material, (None, True, None, True))
+  paths = ( (
+    options.tool,
+    path
+    ), )
+  createSVG(prefix + "top.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
+  # Generate left panel
+  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, material, (None, False, None, None))
+  paths = ( (
+    options.tool,
+    path
+    ), )
+  createSVG(prefix + "left.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
+  # Generate right panel
+  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, material, (None, None, None, False))
+  paths = ( (
+    options.tool,
+    path
+    ), )
+  createSVG(prefix + "right.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
+  # TODO: Generate mounts
 
