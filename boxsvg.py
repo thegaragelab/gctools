@@ -61,7 +61,7 @@ def mkLine(x1, y1, x2, y2, bounds):
   bounds[3] = max(bounds[3], y1, y2)
   return Line(complex(x1, y1), complex(x2, y2))
 
-def getTabPoints(x1, x2, y1, y2, tabWidth, tool):
+def getTabPoints(x1, x2, y1, y2, tabWidth, tool, tab):
   # Determine direction
   rev = False
   if x2 < x1:
@@ -72,13 +72,16 @@ def getTabPoints(x1, x2, y1, y2, tabWidth, tool):
   # Get the points
   start = ((x2 - x1) - (tabWidth * 5)) / 2
   points = [ (x1, y1), ]
+  adjust = -tool / 2
+  if tab:
+    adjust = -adjust
   for p in range(6):
     if (p & 0x01) == 0x01:
-      points.append((x1 + start + (p * tabWidth) + tool / 2, y2))
-      points.append((x1 + start + (p * tabWidth) + tool / 2, y1))
+      points.append((x1 + start + (p * tabWidth) + adjust, y2))
+      points.append((x1 + start + (p * tabWidth) + adjust, y1))
     else:
-      points.append((x1 + start + (p * tabWidth) - tool / 2, y1))
-      points.append((x1 + start + (p * tabWidth) - tool / 2, y2))
+      points.append((x1 + start + (p * tabWidth) - adjust, y1))
+      points.append((x1 + start + (p * tabWidth) - adjust, y2))
   points.append((x2, y1))
   if rev:
     points.reverse()
@@ -108,13 +111,13 @@ def generatePanel(tool, width, height, tabWidth, tabDepth, tabs):
         dy = y + tabDepth + (tool / 2)
         if y == 0:
           dy = y - tabDepth - (tool / 2)
-        p = getTabPoints(xp, x, y, dy, tabWidth, tool)
+        p = getTabPoints(xp, x, y, dy, tabWidth, tool, tabs[index])
       else:
         # Vertical
         dx = x + tabDepth + (tool / 2)
         if x == 0:
           dx = x - tabDepth - (tool / 2)
-        p = getTabPoints(yp, y, x, dx, tabWidth, tool)
+        p = getTabPoints(yp, y, x, dx, tabWidth, tool, tabs[index])
       for idx in range(1, len(p)):
         path.append(mkLine(p[idx - 1][0], p[idx - 1][1], p[idx][0], p[idx][1], bounds))
     else:
@@ -124,13 +127,13 @@ def generatePanel(tool, width, height, tabWidth, tabDepth, tabs):
         dy = y - tabDepth - (tool / 2)
         if y == 0:
           dy = y + tabDepth + (tool / 2)
-        p = getTabPoints(xp, x, y, dy, tabWidth, tool)
+        p = getTabPoints(xp, x, y, dy, tabWidth, tool, tabs[index])
       else:
         # Vertical
         dx = x - tabDepth - (tool / 2)
         if x == 0:
           dx = x + tabDepth + (tool / 2)
-        p = getTabPoints(yp, y, x, dx, tabWidth, tool)
+        p = getTabPoints(yp, y, x, dx, tabWidth, tool, tabs[index])
       for idx in range(1, len(p)):
         path.append(mkLine(p[idx - 1][0], p[idx - 1][1], p[idx][0], p[idx][1], bounds))
     index = index + 1
@@ -177,13 +180,19 @@ if __name__ == "__main__":
     path
     ), )
   createSVG(prefix + "base.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
-  # Generate front and back panels
+  # Generate front panel
   bounds, path = generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, basematerial, (False, None, None, None))
   paths = ( (
     options.tool,
     path
     ), )
   createSVG(prefix + "front.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
+  # Generate back panel
+  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, basematerial, (None, None, False, None))
+  paths = ( (
+    options.tool,
+    path
+    ), )
   createSVG(prefix + "back.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
 
   # TODO: Generate base, front and back panels and the side mounts
