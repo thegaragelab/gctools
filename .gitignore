@@ -1,4 +1,6 @@
 *~
 *.pyc
 *.ngc
+*.svg
 log
+
