@@ -118,8 +118,21 @@ def generatePanel(tool, width, height, tabWidth, tabDepth, tabs):
       for idx in range(1, len(p)):
         path.append(mkLine(p[idx - 1][0], p[idx - 1][1], p[idx][0], p[idx][1], bounds))
     else:
-      # Slot
-      path.append(mkLine(xp, yp, x, y, bounds))
+      # Slots
+      if xp <> x:
+        # Horizontal
+        dy = y - tabDepth - (tool / 2)
+        if y == 0:
+          dy = y + tabDepth + (tool / 2)
+        p = getTabPoints(xp, x, y, dy, tabWidth, tool)
+      else:
+        # Vertical
+        dx = x - tabDepth - (tool / 2)
+        if x == 0:
+          dx = x + tabDepth + (tool / 2)
+        p = getTabPoints(yp, y, x, dx, tabWidth, tool)
+      for idx in range(1, len(p)):
+        path.append(mkLine(p[idx - 1][0], p[idx - 1][1], p[idx][0], p[idx][1], bounds))
     index = index + 1
     xp = x
     yp = y
@@ -164,6 +177,15 @@ if __name__ == "__main__":
     path
     ), )
   createSVG(prefix + "base.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
+  # Generate front and back panels
+  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, basematerial, (False, None, None, None))
+  paths = ( (
+    options.tool,
+    path
+    ), )
+  createSVG(prefix + "front.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
+  createSVG(prefix + "back.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
+
   # TODO: Generate base, front and back panels and the side mounts
   #print generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, basematerial, (True, None, None, None))
 
