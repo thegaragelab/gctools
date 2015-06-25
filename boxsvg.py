@@ -19,7 +19,9 @@ Usage:
        %s -x|--width width -y|--height height -z|--depth depth [--tool size] [--material size] [--base-material size] [prefix]
 """
 
-#--- SVG templates
+#----------------------------------------------------------------------------
+# SVG generation
+#----------------------------------------------------------------------------
 
 SVG_TEMPLATE = """
 <svg
@@ -31,113 +33,102 @@ SVG_TEMPLATE = """
    viewBox="${xmin} ${ymin} ${xmax} ${ymax}"
    >
   <g style="fill: none">
-${paths}
+${path}
   </g>
-
 </svg>
 """
 
 PATH_TEMPLATE = '    <path d="${path}" style="fill: none;stroke: #000000;stroke-width:${strokeWidth}"  />'
 
-def createSVG(filename, xmin, ymin, xmax, ymax, paths):
-  v = { 'xmin': xmin, 'ymin': ymin, 'xmax': xmax, 'ymax': ymax }
-  v['width'] = abs(xmax - xmin)
-  v['height'] = abs(ymax - ymin)
+def mkLine(x1, y1, x2, y2):
+  return Line(complex(x1, y1), complex(x2, y2))
+
+def createSVG(filename, tool, points):
   # Generate the paths
+  allPoints = list()
+  paths = list()
   t = Template(PATH_TEMPLATE)
-  v['paths'] = "\n".join([ t.substitute({ 'strokeWidth': w, 'path': p }) for w, p in paths ])
+  for point in points:
+    allPoints.extend(point)
+    path = Path()
+    lx, ly = point[0]
+    for p in point[1:]:
+      path.append(mkLine(lx, ly, p[0], p[1]))
+      lx = p[0]
+      ly = p[1]
+    path.closed = True
+    paths.append(t.safe_substitute({ 'strokeWidth': tool, 'path': path.d() }))
   # Build the final output
-  t = Template(SVG_TEMPLATE)
-  out = t.substitute(v).strip()
+  v = { 
+    'xmin': min([ x for x, y in allPoints ]) - (tool / 2),
+    'ymin': min([ y for x, y in allPoints ]) - (tool / 2),
+    'xmax': max([ x for x, y in allPoints ]) + (tool / 2),
+    'ymax': max([ y for x, y in allPoints ]) + (tool / 2)
+    }
+  v['width'] = abs(v['xmax'] - v['xmin'])
+  v['height'] = abs(v['ymax'] - v['ymin'])
+  v['path'] = "\n".join(paths)
+  out = Template(SVG_TEMPLATE).substitute(v).strip()
   # And write the file
   with open(filename, "w") as svg:
     svg.write(out)
 
-def mkLine(x1, y1, x2, y2, bounds):
-  # Update bounds
-  bounds[0] = min(bounds[0], x1, x2)
-  bounds[1] = max(bounds[1], x1, x2)
-  bounds[2] = min(bounds[2], y1, y2)
-  bounds[3] = max(bounds[3], y1, y2)
-  return Line(complex(x1, y1), complex(x2, y2))
+#----------------------------------------------------------------------------
+# Co-ordinate generation
+#----------------------------------------------------------------------------
 
-def getTabPoints(x1, x2, y1, y2, tabWidth, tool, tab):
-  # Determine direction
-  rev = False
-  if x2 < x1:
-    x2, x1, rev = x1, x2, True
-  # Get the points
-  start = ((x2 - x1) - (tabWidth * 5)) / 2
-  points = [ (x1, y1), ]
-  adjust = -tool / 2
-  if tab:
-    adjust = -adjust
-  for p in range(6):
-    if (p & 0x01) == 0x01:
-      points.append((x1 + start + (p * tabWidth) + adjust, y2))
-      points.append((x1 + start + (p * tabWidth) + adjust, y1))
-    else:
-      points.append((x1 + start + (p * tabWidth) - adjust, y1))
-      points.append((x1 + start + (p * tabWidth) - adjust, y2))
-  points.append((x2, y1))
-  if rev:
-    points.reverse()
-  return points
-
-def generatePanel(tool, width, height, tabWidth, tabDepth, tabs):
-  """ Generate a panel of the given size
+def getLine(length, tool, reverse = True):
+  """ Generate a list of points for a single line
   """
-  # Adjust for tool size
-  width = width + tool
-  height = height + tool
-  # Set starting point
-  xp = 0
-  yp = 0
-  index = 0
-  bounds = [ 0.0, 0.0, 0.0, 0.0 ]
-  # Build the path
-  path = Path()
-  for x, y in ((width, 0), (width, height), (0, height), (0, 0)):
-    if tabs[index] is None:
-      # Straight line
-      path.append(mkLine(xp, yp, x, y, bounds))
-    elif tabs[index]:
-      # Protuding tabs
-      if xp <> x:
-        # Horizontal
-        dy = y + tabDepth + (tool / 2)
-        if y == 0:
-          dy = y - tabDepth - (tool / 2)
-        p = getTabPoints(xp, x, y, dy, tabWidth, tool, tabs[index])
-      else:
-        # Vertical
-        dx = x + tabDepth + (tool / 2)
-        if x == 0:
-          dx = x - tabDepth - (tool / 2)
-        p = getTabPoints(yp, y, x, dx, tabWidth, tool, tabs[index])
-      for idx in range(1, len(p)):
-        path.append(mkLine(p[idx - 1][0], p[idx - 1][1], p[idx][0], p[idx][1], bounds))
-    else:
-      # Slots
-      if xp <> x:
-        # Horizontal
-        dy = y - tabDepth - (tool / 2)
-        if y == 0:
-          dy = y + tabDepth + (tool / 2)
-        p = getTabPoints(xp, x, y, dy, tabWidth, tool, tabs[index])
-      else:
-        # Vertical
-        dx = x - tabDepth - (tool / 2)
-        if x == 0:
-          dx = x + tabDepth + (tool / 2)
-        p = getTabPoints(yp, y, x, dx, tabWidth, tool, tabs[index])
-      for idx in range(1, len(p)):
-        path.append(mkLine(p[idx - 1][0], p[idx - 1][1], p[idx][0], p[idx][1], bounds))
-    index = index + 1
-    xp = x
-    yp = y
-  path.closed = True
-  return bounds, path.d()
+  points = [ (-tool / 2, 0), (length + (tool / 2), 0) ]
+  if reverse:
+    points = list(reversed(points))
+  return points
+  
+def getTabLine(length, tool, tabs, depth, reverse = False):
+  """ Generate a list containing the sequence of points for tabs
+  """
+  width = length / (tabs * 2)
+  pos = width / 2
+  points = [ (-tool / 2, 0), ]
+  for p in range(tabs):
+    points.append((pos - (tool / 2), 0))
+    points.append((pos - (tool / 2), depth))
+    pos = pos + width
+    points.append((pos + (tool / 2), depth))
+    points.append((pos + (tool / 2), 0))
+    pos = pos + width
+  # Add the final point and return
+  points.append((length + tool / 2, 0))
+  if reverse:
+    points = list(reversed(points))
+  return points
+  
+def translate(line, dx, dy):
+  """ Return a line translated in x and y
+  """
+  return list([ (x + dx, y + dy) for x, y in line ])
+  
+def rotate(line):
+  """ Rotate a line 90 degrees
+  """
+  return list([ (y, x) for x, y in line ])
+
+#----------------------------------------------------------------------------
+# Panel generation
+#----------------------------------------------------------------------------
+
+def generateBase(width, height, depth, tool, material, base_material):
+  base = list()
+  base.extend(translate(getTabLine(width, tool, 3, material), 0, -(tool / 2)))
+  base.extend(translate(rotate(getLine(height, tool)), width + (tool / 2), 0))
+  base.extend(translate(getTabLine(width, tool, 3, -material, True), 0, height + (tool / 2)))
+  base.extend(translate(rotate(getLine(height, tool, True)), -(tool / 2), 0))
+  return (base, )
+  
+#----------------------------------------------------------------------------
+# Main program
+#----------------------------------------------------------------------------
 
 # Main program
 if __name__ == "__main__":
@@ -167,51 +158,6 @@ if __name__ == "__main__":
     basematerial = material
   else:
     basematerial = options.basematerial
-  # Calculate the size of tabs
-  tabWidthW = options.width / 6
-  tabWidthH = options.height / 6
   # Generate the base
-  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.height + (4 * material), tabWidthW, material, (True, None, True, None))
-  paths = ( (
-    options.tool,
-    path
-    ), )
-  createSVG(prefix + "base.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
-  # Generate front panel
-  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, basematerial, (False, None, None, None))
-  paths = ( (
-    options.tool,
-    path
-    ), )
-  createSVG(prefix + "front.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
-  # Generate back panel
-  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, basematerial, (None, None, False, None))
-  paths = ( (
-    options.tool,
-    path
-    ), )
-  createSVG(prefix + "back.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
-  # TODO: Generate side mounts
-  # Generate the top
-  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.height + (4 * material), tabWidthW, material, (None, True, None, True))
-  paths = ( (
-    options.tool,
-    path
-    ), )
-  createSVG(prefix + "top.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
-  # Generate left panel
-  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, material, (None, False, None, None))
-  paths = ( (
-    options.tool,
-    path
-    ), )
-  createSVG(prefix + "left.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
-  # Generate right panel
-  bounds, path = generatePanel(options.tool, options.width + (4 * material), options.depth + (2 * material), tabWidthW, material, (None, None, None, False))
-  paths = ( (
-    options.tool,
-    path
-    ), )
-  createSVG(prefix + "right.svg", bounds[0], bounds[2], bounds[1], bounds[3], paths)
-  # TODO: Generate mounts
-
+  createSVG(prefix + "base.svg", options.tool, generateBase(options.width, options.height, options.depth, options.tool, material, basematerial))
+  
