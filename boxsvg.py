@@ -77,7 +77,7 @@ def createSVG(filename, tool, points):
 # Co-ordinate generation
 #----------------------------------------------------------------------------
 
-def getLine(length, tool, reverse = True):
+def getLine(length, tool, reverse = False):
   """ Generate a list of points for a single line
   """
   points = [ (-tool / 2, 0), (length + (tool / 2), 0) ]
@@ -97,6 +97,25 @@ def getTabLine(length, tool, tabs, depth, reverse = False):
     pos = pos + width
     points.append((pos + (tool / 2), depth))
     points.append((pos + (tool / 2), 0))
+    pos = pos + width
+  # Add the final point and return
+  points.append((length + tool / 2, 0))
+  if reverse:
+    points = list(reversed(points))
+  return points
+  
+def getSlotLine(length, tool, tabs, depth, reverse = False):
+  """ Generate a list containing the sequence of points for tabs
+  """
+  width = length / (tabs * 2)
+  pos = width / 2
+  points = [ (-tool / 2, 0), ]
+  for p in range(tabs):
+    points.append((pos - (1.5 * tool), 0))
+    points.append((pos - (1.5 * tool), -depth))
+    pos = pos + width
+    points.append((pos + (1.5 * tool), -depth))
+    points.append((pos + (1.5 * tool), 0))
     pos = pos + width
   # Add the final point and return
   points.append((length + tool / 2, 0))
@@ -125,7 +144,28 @@ def generateBase(width, height, depth, tool, material, base_material):
   base.extend(translate(getTabLine(width, tool, 3, -material, True), 0, height + (tool / 2)))
   base.extend(translate(rotate(getLine(height, tool, True)), -(tool / 2), 0))
   return (base, )
+
+def generateBack(width, height, depth, tool, material, base_material):
+  back = list()
+  back.extend(translate(getLine(width, tool), 0, -(tool / 2)))
+  back.extend(translate(rotate(getLine(height, tool)), width + (tool / 2), 0))
+  back.extend(translate(getSlotLine(width, tool, 3, -base_material, True), 0, height + tool / 2))
+  back.extend(translate(rotate(getLine(height, tool, True)), -tool / 2, 0))
+  return (back, )
   
+def generateTop(width, height, depth, tool, material, base_material):
+  # Adjust sizes
+#  width = width + (2 * material)
+#  height = height + (2 * material)
+#  depth = depth + base_material + material
+  # Now generate the paths
+  top = list()
+  top.extend(translate(getLine(width, tool), 0, -(tool / 2)))
+  top.extend(translate(rotate(getTabLine(height, tool, 3, material)), width + (tool / 2), 0))
+  top.extend(translate(getLine(width, tool, True), 0, height + (tool / 2)))
+  top.extend(translate(rotate(getTabLine(height, tool, 3, -material, True)), -(tool / 2), 0))
+  return (top, )
+
 #----------------------------------------------------------------------------
 # Main program
 #----------------------------------------------------------------------------
@@ -160,4 +200,6 @@ if __name__ == "__main__":
     basematerial = options.basematerial
   # Generate the base
   createSVG(prefix + "base.svg", options.tool, generateBase(options.width, options.height, options.depth, options.tool, material, basematerial))
+  createSVG(prefix + "back.svg", options.tool, generateBack(options.width, options.height, options.depth, options.tool, material, basematerial))
+  createSVG(prefix + "top.svg", options.tool, generateTop(options.width, options.height, options.depth, options.tool, material, basematerial))
   
