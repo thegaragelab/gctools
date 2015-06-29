@@ -58,7 +58,7 @@ def getScaling(doc):
 def getXY(point, sx, sy, h):
   return round(point.real * sx, 4), round((h - point.imag) * sy, 4)
 
-def processPath(path, cut, safe, sx, sy, h):
+def processPath(path, cut, safe, sx, sy, h, precision):
   """ Process a single path, generating the required Gcode to implement it.
   """
   gcode = list()
@@ -88,10 +88,15 @@ def processPath(path, cut, safe, sx, sy, h):
       gcode.append("G1 X%0.4f Y%0.4f" % (x, y))
       lx, ly = x, y
       consumed = True
+# TODO: Arcs can be done with G2/G3 commands
+#    if segment.__class__ == Arc:
+#      # Circles can be done with G2
+#      if segment.radius.real == segment.radius.imag:
+#        x, y = getXY(segment.end, sx, sy, h)
     # Fallback, interpolate as a sequence of straight lines
     if not consumed:
       # Assumes sx == sy so we get 1mm steps
-      delta = 1 / (sx * length)
+      delta = precision / (sx * length)
       pos = delta
       while pos < 1.0:
         x, y = getXY(segment.point(pos), sx, sy, h)
@@ -113,6 +118,7 @@ if __name__ == "__main__":
   parser = OptionParser()
   parser.add_option("-c", "--cut", action="store", type="float", dest="cut_depth")
   parser.add_option("-s", "--safe", action="store", type="float", dest="safe_depth")
+  parser.add_option("-p", "--precision", action="store", type="float", dest="precision", default=1.0)
   options, args = parser.parse_args()
   # Check positional arguments
   if len(args) <> 1:
@@ -152,7 +158,7 @@ if __name__ == "__main__":
   print "Processing %d paths ..." % len(paths)
   results = list()
   for p in paths:
-    results.extend(processPath(p, options.cut_depth, options.safe_depth, sx, sy, h))
+    results.extend(processPath(p, options.cut_depth, options.safe_depth, sx, sy, h, options.precision))
   # Write the file
   saveGCode(
     name + ".ngc",
