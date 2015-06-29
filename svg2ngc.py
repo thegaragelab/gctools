@@ -68,6 +68,7 @@ def processPath(path, cut, safe, sx, sy, h):
     length = segment.length()
     if length == 0.0:
       continue
+    gcode.append("(%s,%0.4fmm)" % (segment.__class__.__name__, length * sx))
     # Move the tool head if there is a break in the path
     x, y = getXY(segment.start, sx, sy, h)
     if ((x <> lx) or (y <> ly)):
@@ -75,19 +76,31 @@ def processPath(path, cut, safe, sx, sy, h):
         gcode.append("G0 Z%0.4f" % safe)
         tool = False
       gcode.append("G0 X%0.4f Y%0.4f" % (x, y))
+    # Make sure the tool is down
+    if not tool:
+      gcode.append("G1 Z%0.4f" % cut)
+      tool = True
     # Determine what sort of object we are processing
+    consumed = False
     if segment.__class__ == Line:
-      # Make sure the tool is down
-      if not tool:
-        gcode.append("G1 Z%0.4f" % cut)
-        tool = True
       # Do the move to the end point
       x, y = getXY(segment.end, sx, sy, h)
       gcode.append("G1 X%0.4f Y%0.4f" % (x, y))
       lx, ly = x, y
-    else:
-      print "ERROR: Unsupported path segment '%s'" % segment.__class__.__name__
-      exit(1)
+      consumed = True
+    # Fallback, interpolate as a sequence of straight lines
+    if not consumed:
+      # Assumes sx == sy so we get 1mm steps
+      delta = 1 / (sx * length)
+      pos = delta
+      while pos < 1.0:
+        x, y = getXY(segment.point(pos), sx, sy, h)
+        gcode.append("G1 X%0.4f Y%0.4f" % (x, y))
+        pos = pos + delta
+      x, y = getXY(segment.end, sx, sy, h)
+      gcode.append("G1 X%0.4f Y%0.4f" % (x, y))
+      lx, ly = x, y
+      consumed = True
   # Bring the tool up again if needed
   if tool:
     gcode.append("G0 Z%0.4f" % safe)
