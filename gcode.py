@@ -237,7 +237,33 @@ class XFlip(FilterChain):
     """
     midpoint = self.bounds.minx + ((self.bounds.maxx - self.bounds.minx) / 2)
     for code in line:
-      if code[1] == 'Z':
+      if code[1] == 'X':
+        code[2] = floatVal((2 * midpoint) - float(code[2]))
+    return line
+
+class YFlip(FilterChain):
+  """ Flip the Y axis around the vertical center of the object
+
+    This is a two pass filter - first it determines the bounds of the object
+    being engraved/cut and then it modifies the Y co-ordinates to flip that
+    object around the horizontal center of the object. This leaves the objects
+    bounds the same but looks at it from the opposite Z direction.
+  """
+
+  def __init__(self):
+    """ Constructor
+
+      Sets up the two filters to apply
+    """
+    self.bounds = Bounds()
+    FilterChain.__init__(self, self.bounds, NativeFilter(self.transform))
+
+  def transform(self, line):
+    """ Flip the Y value around the object midpoint
+    """
+    midpoint = self.bounds.miny + ((self.bounds.maxy - self.bounds.miny) / 2)
+    for code in line:
+      if code[1] == 'Y':
         code[2] = floatVal((2 * midpoint) - float(code[2]))
     return line
 
@@ -310,11 +336,15 @@ def loadGCode(filename):
     result = list([ line.strip() for line in input.readlines() ])
   return result
 
-def saveGCode(filename, lines):
+def saveGCode(filename, lines, prefix = None, suffix = None):
   """ Save a list of lines to a file
   """
   with open(filename, "w") as output:
+    if prefix is not None:
+      output.write(prefix.strip() + "\n")
     output.writelines([ line + "\n" for line in lines])
+    if suffix is not None:
+      output.write(suffix.strip() + "\n")
 
 def combine(*args, **kwargs):
   """ Combine multiple g-code sequences
