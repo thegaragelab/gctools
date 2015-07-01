@@ -109,9 +109,10 @@ class NativeFilter(Filter):
     for line in source:
       # Split it into components and pass to the filter
       parts = list([ list(cmd) for cmd in REGCODE.findall(line) ])
-      self.transform(parts)
-      # Reconstruct as text
-      results.append(" ".join([ "%s%s%s" % (cmd[1], cmd[2], cmd[5]) for cmd in parts]))
+      result = self.transform(parts)
+      if result is not None:
+        # Reconstruct as text
+        results.append(" ".join([ "%s%s%s" % (cmd[1], cmd[2], cmd[5]) for cmd in result]))
     # All done
     return results
 
@@ -324,16 +325,49 @@ class Translate(NativeFilter):
     # Done
     return line
 
+class Strip(NativeFilter):
+  """ Strip header/footer commands
+  """
+
+  def __init__(self):
+    NativeFilter.__init__(self)
+
+  def transform(self, line):
+    """ Do the transformation on the co-ordinates
+    """
+    if len(line) == 0:
+      return None
+    # Spindle control and program stop
+    if (line[0][1] == 'M') and (float(line[0][2]) in (2.0, 3.0, 5.0)):
+      return None
+    if (line[0][1] == 'G') and (float(line[0][2]) == '0'):
+      # Rapid movement, see if it is to home
+      ignore = True
+      for code in line[1:]:
+        if (code[1] == 'X') and (float(code[2]) <> 0.0):
+          ignore = False
+        if (code[1] == 'Y') and (float(code[2]) <> 0.0):
+          ignore = False
+        if (code[1] == 'Z') and (float(code[2]) <> 0.0):
+          ignore = False
+      if ignore:
+        return None
+    # Done
+    return line
+
 #----------------------------------------------------------------------------
 # Top level helpers
 #----------------------------------------------------------------------------
 
-def loadGCode(filename):
+def loadGCode(filename, strip = False):
   """ Load g-code from a file as a list of lines
   """
   result = None
   with open(filename, "r") as input:
     result = list([ line.strip() for line in input.readlines() ])
+  if strip:
+    # Remove common header/footer commands
+    result = Strip().apply(result)
   return result
 
 def saveGCode(filename, lines, prefix = None, suffix = None):
