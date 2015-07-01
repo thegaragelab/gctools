@@ -32,12 +32,14 @@ SVG_TEMPLATE = """
    height="${height}mm"
    viewBox="${xmin} ${ymin} ${xmax} ${ymax}"
    >
+<g id="layer1">
 ${path}
+</g>
 </svg>
 """
 
 PATH_TEMPLATE = """    <path 
-      style="color:#000000;fill:#ff0000;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:${strokeWidth};marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+      style="color:#000000;fill:#ff0000;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:1;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
       d="${path}"
     />"""
 
@@ -182,7 +184,37 @@ def vSlots(length, fixed, tool, tabs, depth, reverse = False):
   if reverse:
     points = list(reversed(points))
   return points
-  
+
+def vSlotOne(length, fixed, tool, width, depth, reverse = False):
+  """ Generate a list containing the sequence of points for tabs
+  """
+  points = [ 
+    (fixed, -tool / 2), 
+    (fixed, (length - width) / 2 + (tool / 2)),
+    (fixed + depth, (length - width) / 2 + (tool / 2)),
+    (fixed + depth, (length - width) / 2 + width),
+    (fixed, (length - width) / 2 + width),
+    (fixed, length + tool / 2)
+    ]
+  if reverse:
+    points = list(reversed(points))
+  return points
+
+def vTabOne(length, fixed, tool, width, depth, reverse = False):
+  """ Generate a list containing the sequence of points for tabs
+  """
+  points = [ 
+    (fixed, -tool / 2), 
+    (fixed, (length - width) / 2 - (tool / 2)),
+    (fixed + depth, (length - width) / 2 - (tool / 2)),
+    (fixed + depth, (length - width) / 2 + width + tool),
+    (fixed, (length - width) / 2 + width + tool),
+    (fixed, length + tool / 2)
+    ]
+  if reverse:
+    points = list(reversed(points))
+  return points
+
 #----------------------------------------------------------------------------
 # Panel generators
 #----------------------------------------------------------------------------
@@ -198,9 +230,17 @@ def generateBase(width, height, depth, tool, material, base_material):
 def generateBack(width, height, depth, tool, material, base_material):
   back = list()
   back.extend(hLine(width, -tool / 2, tool))
-  back.extend(vLine(depth, width + (tool / 2), tool))
+  back.extend(vSlotOne(depth, width + (tool / 2), tool, 10, -material))
   back.extend(hSlots(width, depth + (tool / 2), tool, 3, base_material, reverse = True))
-  back.extend(vLine(depth, -tool / 2, tool, reverse = True))
+  back.extend(vSlotOne(depth, -tool / 2, tool, 10, material, reverse = True))
+  return [ back, ]
+
+def generateStrut(width, height, depth, tool, material, base_material):
+  back = list()
+  back.extend(hLine(height, -tool / 2, tool))
+  back.extend(vTabOne(30, height + (tool / 2), tool, 10, material))
+  back.extend(hLine(height, 30 + (tool / 2), tool, reverse = True))
+  back.extend(vTabOne(30, -tool / 2, tool, 10, -material, reverse = True))
   return [ back, ]
 
 def generateTop(width, height, depth, tool, material, base_material):
@@ -219,7 +259,6 @@ def generateSide(width, height, depth, tool, material, base_material):
 #  side.extend(hLine(height, depth + (tool / 2), tool, reverse = True))
   side.extend(hSlots(height, depth + (tool / 2), tool, 1, base_material, reverse = True))
   side.extend(vLine(depth, -tool / 2, tool, reverse = True))
-  print side
   return [ side, ]
   
 #----------------------------------------------------------------------------
@@ -257,6 +296,7 @@ if __name__ == "__main__":
   # Generate the panels for the bottom
   createSVG(prefix + "base.svg", options.tool, generateBase(options.width + (2 * options.material), options.height, options.depth, options.tool, material, basematerial))
   createSVG(prefix + "back.svg", options.tool, generateBack(options.width + (2 * options.material), options.height, options.depth + options.material, options.tool, material, basematerial))
+  createSVG(prefix + "strut.svg", options.tool, generateStrut(options.width + (2 * options.material), options.height, options.depth + options.material, options.tool, material, basematerial))
   # Generate the panels for the top
   createSVG(prefix + "top.svg", options.tool, generateTop(options.width + (2 * options.material), options.height, options.depth, options.tool, material, basematerial))
   createSVG(prefix + "side.svg", options.tool, generateSide(options.width + (2 * options.material), options.height, options.depth, options.tool, material, basematerial))
