@@ -21,6 +21,18 @@ Where:
   --output filename the name of the file to write the results to
 """
 
+GCODE_PREFIX = """
+G21 (Use mm)
+G90 (Set Absolute Coordinates)
+G0 Z%0.4f (Move to safe height)
+G0 X0 Y0 (Go home)
+"""
+
+GCODE_SUFFIX = """
+M2
+%
+"""
+
 #--- Main program
 if __name__ == "__main__":
   # Set up program options
@@ -35,7 +47,7 @@ if __name__ == "__main__":
     print USAGE.strip() % argv[0]
     exit(1)
   # Make sure required arguments are present
-  for req in ("cut_depth", "safe_depth", "step_depth"):
+  for req in ("cut_depth", "safe_depth", "step_depth", "output"):
     if eval("options.%s" % req) is None:
       print "ERROR: Missing required argument '%s'" % req
       print USAGE.strip() % argv[0]
@@ -48,17 +60,12 @@ if __name__ == "__main__":
   delta = options.cut_depth / steps
   depth = delta
   # Now process the file
-  # TODO: Load stripped (no prefix or suffix)
-  original = loadGCode(source)
+  original = loadGCode(source, stripped = True)
   result = list()
   for x in range(steps):
     processor = ZLevel(depth, options.safe_depth)
     result.extend(processor.apply(original))
     depth = depth + delta
   # Write the output
-  if options.output_file is None:
-    print "\n".join(result)
-  else:
-    # TODO: Add prefix and suffix
-    saveGCode(options.output_file, result)
+  saveGCode(options.output_file, result, prefix = GCODE_PREFIX % options.safe_depth, suffix = GCODE_SUFFIX)
 
