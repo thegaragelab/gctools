@@ -238,7 +238,7 @@ class XFlip(FilterChain):
     """
     midpoint = self.bounds.minx + ((self.bounds.maxx - self.bounds.minx) / 2)
     for code in line:
-      if code[1] == 'X':
+      if code[1] in ('X', 'I'):
         code[2] = floatVal((2 * midpoint) - float(code[2]))
     return line
 
@@ -264,7 +264,7 @@ class YFlip(FilterChain):
     """
     midpoint = self.bounds.miny + ((self.bounds.maxy - self.bounds.miny) / 2)
     for code in line:
-      if code[1] == 'Y':
+      if code[1] in ('Y', 'J'):
         code[2] = floatVal((2 * midpoint) - float(code[2]))
     return line
 
@@ -316,11 +316,11 @@ class Translate(NativeFilter):
     """ Do the transformation on the co-ordinates
     """
     for code in line:
-      if (code[1] == 'X') and (self.dx is not None):
+      if (code[1] in ('X', 'I') and (self.dx is not None):
         code[2] = floatVal(float(code[2]) + self.dx)
-      if (code[1] == 'Y') and (self.dy is not None):
+      if (code[1] in ('Y', 'J') and (self.dy is not None):
         code[2] = floatVal(float(code[2]) + self.dy)
-      if (code[1] == 'Z') and (self.dz is not None):
+      if (code[1] in ('Z', 'K') and (self.dz is not None):
         code[2] = floatVal(float(code[2]) + self.dz)
     # Done
     return line
