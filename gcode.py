@@ -380,6 +380,13 @@ def saveGCode(filename, lines, prefix = None, suffix = None):
     if suffix is not None:
       output.write(suffix.strip() + "\n")
 
+def getBounds(lines):
+  """ Helper to get bounds and units of a loaded file
+  """
+  bounds = Bounds()
+  bounds.apply(lines)
+  return (bounds.minx, bounds.maxx, bounds.miny, bounds.maxy, bounds.minz, bounds.maxz, bounds.units)
+
 def combine(*args, **kwargs):
   """ Combine multiple g-code sequences
 
