@@ -316,11 +316,11 @@ class Translate(NativeFilter):
     """ Do the transformation on the co-ordinates
     """
     for code in line:
-      if (code[1] in ('X', 'I') and (self.dx is not None):
+      if (code[1] in ('X', 'I')) and (self.dx is not None):
         code[2] = floatVal(float(code[2]) + self.dx)
-      if (code[1] in ('Y', 'J') and (self.dy is not None):
+      if (code[1] in ('Y', 'J')) and (self.dy is not None):
         code[2] = floatVal(float(code[2]) + self.dy)
-      if (code[1] in ('Z', 'K') and (self.dz is not None):
+      if (code[1] in ('Z', 'K')) and (self.dz is not None):
         code[2] = floatVal(float(code[2]) + self.dz)
     # Done
     return line
