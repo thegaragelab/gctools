@@ -1,0 +1,17 @@
+# Configuration file for pcbpack.
+{
+  # Location of repository
+  "boards": "boards",
+  # Panel definitions
+  "panels": {
+    "s150x75": {
+      "description": "Single sided, screw lock",
+      "width": 150,
+      "height": 75,
+      # Locked regions (can't place PCB here)
+      "locked": [
+        { "x": 0, "y": 0, "w": 10, "h": 10 }
+        ]
+      }
+    }
+}
