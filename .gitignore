@@ -1,6 +1,7 @@
 *~
 *.pyc
 *.ngc
+*.png
 log
 boards
 
