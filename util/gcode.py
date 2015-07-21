@@ -65,9 +65,23 @@ class Loader:
     """
     return GCommand(line)
 
+class Filter:
+  """ A filter is used to make modifications to the gcode
+  """
+
+  def apply(self, command):
+    """ Called with a GCommand instance, must return a new (or the same)
+        instance to replace it.
+    """
+    return command
+
 class GCode(Loader):
   """ Represents a gcode file
   """
+
+  # Units
+  INCH = "G20"
+  MM   = "G21"
 
   def __init__(self, loader = None):
     self.loader = loader
@@ -81,26 +95,22 @@ class GCode(Loader):
     """
     # We always parse ourselves, we want to check for units
     cmd = GCommand(line)
-    if cmd.command == "G20":
-      self.units = "mm"
-    elif cmd.command == "G21":
-      self.units = "in"
+    if cmd.command in (GCode.INCH, GCode.MM):
+      self.units = cmd.command
     # If we have a different loader parse it again with that
     if self.loader is not None:
       cmd = self.loader.parse(line)
     if cmd is not None:
+      # Convert to MM
+      if self.units == GCode.INCH:
+        for p in PARAMS:
+          if hasattr(cmd, p):
+            setattr(cmd, p, getattr(cmd, p) * 2.54)
+      if cmd.command == GCode.INCH:
+        cmd.command = GCode.MM
+        cmd.comment = "(use mm)"
       self.lines.append(cmd)
     return cmd
-
-class Filter:
-  """ A filter is used to make modifications
-  """
-
-  def apply(self, command):
-    """ Called with a GCommand instance, must return a new (or the same)
-        instance to replace it.
-    """
-    return command
 
 #----------------------------------------------------------------------------
 # File operations
@@ -118,7 +128,7 @@ def loadGCode(filename, *loaders):
   with open(filename, "r") as source:
     for line in source.readlines():
       for loader in results:
-        loader.parse(line)
+        loader.parse(str(line))
   # Return the results
   if len(results) == 1:
     return results[0]
@@ -140,5 +150,7 @@ def saveGCode(filename, gcode, prefix = None, suffix = None):
 #----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-  pass
+  gcode = loadGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.ngc")
+  saveGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.2.ngc", gcode)
+
 
