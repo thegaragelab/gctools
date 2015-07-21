@@ -28,6 +28,17 @@ from optparse import OptionParser
 CONFIG = None
 
 #----------------------------------------------------------------------------
+# Helper functions
+#----------------------------------------------------------------------------
+
+def area(*args):
+  """ Calculate the combined area of a number of elements
+
+    Each element is expected to have a 'w' and 'h' attribute.
+  """
+  return sum([ float(a.w) * float(a.h) for a in args ])
+
+#----------------------------------------------------------------------------
 # Manage board positioning
 #
 # The width and height of the board must include any spacing required and
@@ -136,6 +147,10 @@ class Panel:
         lock = BoardPosition("_lock_", lockInfo['w'], lockInfo['h'])
         lock.x = lockInfo['x']
         lock.y = lockInfo['y']
+        self.locked.append(lock)
+
+  def area(self):
+    return area(self) - area(*self.locked)
 
   def willFit(self, board):
     """ Determine if the board will fit
@@ -253,8 +268,8 @@ def loadBoard(name):
     # Create a new one and cache it
     board = BoardPosition(
       name,
-      15 + randint(0, 200),
-      15 + randint(0, 200)
+      15 + randint(0, 135),
+      15 + randint(0, 135)
       )
     LOG.DEBUG(str(board))
     BOARD_CACHE[name] = board
@@ -301,6 +316,10 @@ if __name__ == "__main__":
     boards.append(board)
   if len(boards) == 0:
     LOG.FATAL("No boards specified on command line")
+  # Make sure they can reasonably fit
+  if area(*boards) > panel.area():
+    LOG.FATAL("This board combination cannot fit on the selected panel - board area = %0.2f, panel area = %0.2f" % (area(*boards), panel.area()))
+
 """
   # Process command line
   boards = list()
