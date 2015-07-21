@@ -4,5 +4,6 @@
 #
 # Utility classes and methods for gcode manipulation.
 #----------------------------------------------------------------------------
+from logger import LOG, Logger
 from jsonhelp import toJSON, fromJSON, fromJSONFile
 
