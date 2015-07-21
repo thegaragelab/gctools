@@ -19,10 +19,11 @@
 #
 # Tool to pack multiple PCB g-code files into a single panel.
 #----------------------------------------------------------------------------
-from util import LOG, fromJSONFile
+from util import LOG, Logger, fromJSONFile
 from random import randint
 from os.path import realpath, splitext, exists
 from optparse import OptionParser
+from PIL import Image, ImageDraw
 
 #--- Globals
 CONFIG = None
@@ -37,6 +38,19 @@ def area(*args):
     Each element is expected to have a 'w' and 'h' attribute.
   """
   return sum([ float(a.w) * float(a.h) for a in args ])
+
+def rotations(boards):
+  """ Generator to walk through all rotation combinations
+  """
+  for iteration in range(2 ** len(boards)):
+    candidate = list()
+    flag = 1
+    for index in range(len(boards)):
+      board = boards[index].clone()
+      if iteration & flag:
+        board.rotated = True
+      candidate.append(board)
+    yield sorted(candidate, cmp = lambda x, y: cmp(x.h, y.h), reverse = True)
 
 #----------------------------------------------------------------------------
 # Manage board positioning
@@ -90,25 +104,26 @@ class BoardPosition:
     self.y = 0.0
     self.rotated = False
 
-  def translate(self, dx, dy):
-    self.x = self.x + dx
-    self.y = self.y + dy
-
   def overlaps(self, other):
     """ Determine if this board overlaps another
     """
-    return not (((self.x + self.width) <= other.x) or
-      ((other.x + other.width) <= self.x) or
-      ((self.y + self.height) <= other.y) or
-      ((other.y + other.height) <= self.y))
+    return not (((self.x + self.w <= other.x) or
+      ((other.x + other.w) <= self.x) or
+      ((self.y + self.h) <= other.y) or
+      ((other.y + other.h) <= self.y)))
 
   def contains(self, other):
     """ Determine if this board completely contains another
     """
     return ((self.x <= other.x) and
-      ((self.x + self.width) >= (other.x + other.width)) and
+      ((self.x + self.w) >= (other.x + other.w)) and
       (self.y <= other.y) and
-      ((self.y + self.height) >= (other.y + other.height)))
+      ((self.y + self.h) >= (other.y + other.h)))
+
+  def intersects(self, other):
+    """ Determine if this board intesects another
+    """
+    return self.overlaps(other) or self.contains(other) or other.contains(self)
 
   def area(self):
     """ Return the area of the board
@@ -152,6 +167,16 @@ class Panel:
   def area(self):
     return area(self) - area(*self.locked)
 
+  def consumed(self, boards):
+    """ Determine the consumed area
+    """
+    w, h = 0, 0
+    for b in boards:
+      if b.name != "_lock_":
+        w = max(w, b.x + b.w)
+        h = max(h, b.y + b.h)
+    return w * h
+
   def willFit(self, board):
     """ Determine if the board will fit
     """
@@ -161,6 +186,47 @@ class Panel:
       return False
     return True
 
+  def findPosition(self, layout, board):
+    LOG.DEBUG("Positioning %s" % board)
+    for x in range(0, int(self.w - board.w - 1)):
+      for y in range(0, int(self.h - board.h - 1)):
+        LOG.DEBUG("  Testing %d, %d" % (x, y))
+        board.x = x
+        board.y = y
+        # Does it overlap ?
+        safe = True
+        for existing in layout:
+          LOG.DEBUG("Checking against %s" % existing)
+          if board.intersects(existing):
+            safe = False
+        if safe:
+          LOG.DEBUG("  Position is safe")
+          return True
+    return False
+
+  def layout(self, *boards):
+    """ Layout the set of boards on the panel
+    """
+    best = None
+    for candidate in rotations(boards):
+      # This is an ugly brute force approach
+      current = list(self.locked)
+      placed = True
+      for board in candidate:
+        if self.findPosition(current, board):
+          LOG.DEBUG("Placed %s" % board)
+          current.append(board)
+        else:
+          placed = False
+          break
+      # Did we place all the boards ?
+      if placed:
+        # Update the 'best' solution
+        if (best is None) or (self.consumed(current) < self.consumed(best)):
+          best = current
+    self.layout = best
+    return self.layout is not None
+
   #--------------------------------------------------------------------------
   # Utility methods
   #--------------------------------------------------------------------------
@@ -168,88 +234,20 @@ class Panel:
   def createImage(self, filename):
     """ Generate an image for the current layout.
     """
-    pass
-    """ TODO: Reimplement this
-
-    img = Image.new("RGB", (int(panel.width * 2), int(panel.height * 2)), "white")
+    img = Image.new("RGB", (int(self.w * 4), int(self.h * 4)), "white")
     drw = ImageDraw.Draw(img)
-    for board in boards:
-      drw.rectangle((int(board.x * 2), int(board.y * 2), int((board.x + board.width) * 2), int((board.y + board.height) * 2)), fill = "black")
+    for board in self.layout:
+      color = "green"
+      if board.name == "_lock_":
+        color = "red"
+      rect = (int(board.x * 4), int(board.y * 4), int((board.x + board.w) * 4), int((board.y + board.h) * 4))
+      drw.rectangle(rect, fill = "black")
+      rect = (rect[0] + 1, rect[1] + 1, rect[2] - 1, rect[3] - 1)
+      drw.rectangle(rect, fill = color)
     img.save(filename)
-    """
 
   def __str__(self):
     return "%s - %0.1f x %0.1f mm" % (self.description, self.w, self.h)
-
-#----------------------------------------------------------------------------
-# Layout operations
-#----------------------------------------------------------------------------
-
-def getIteration(current, boards):
-  """ Generate an iteration.
-
-    We want to test every combination of rotation, this generates an iteration
-    using a bit mask.
-  """
-  results = list()
-  for bit in range(len(boards)):
-    board = boards[bit].clone()
-    if (1 << bit) & current:
-      board.rotated = True
-    results.append(board)
-  return results
-
-def overlaps(placed, board):
-  """ Determine if the board overlaps any previously placed board
-  """
-  for previous in placed:
-    if board.overlaps(previous):
-      return True
-  return False
-
-def layout(panel, boards):
-  """ Layout the boards on the given panel
-  """
-  boards = sorted(boards, cmp = lambda x, y: cmp(x.height, y.height), reverse = True)
-  placed = list()
-  botright = None
-  for board in boards:
-    # Make sure the height is valid
-    if board.height > panel.height:
-      return False
-    # First board always goes at bottom left
-    if len(placed) == 0:
-      placed.append(board)
-      botright = board
-      continue
-    # Will this board fit above any previously placed board ?
-    for previous in placed:
-      board.x = previous.x
-      board.y = previous.y + previous.height
-      if panel.contains(board) and not overlaps(placed, board):
-        placed.append(board)
-        board = None
-        break
-    # Did we manage to put it somewhere?
-    if board is None:
-      continue
-    # Place it next to the rightmost board
-    board.x = botright.x + botright.width
-    board.y = 0
-    # A higher (in y) board may overlap, adjust for that
-    while overlaps(placed, board):
-      board.translate(1.0, 0)
-    # Make sure it fits
-    if not panel.contains(board):
-      return False
-    placed.append(board)
-  # If we make it here we are done for this layout
-  return True
-
-def consumedArea(boards):
-  """ Determine the area taken by the boards in the current position
-  """
-  return max([ b.x + b.width for b in boards]) * max([ b.y + b.height for b in boards])
 
 #----------------------------------------------------------------------------
 # Helpers
@@ -268,8 +266,8 @@ def loadBoard(name):
     # Create a new one and cache it
     board = BoardPosition(
       name,
-      15 + randint(0, 135),
-      15 + randint(0, 135)
+      15 + randint(0, 45),
+      15 + randint(0, 45)
       )
     LOG.DEBUG(str(board))
     BOARD_CACHE[name] = board
@@ -291,6 +289,7 @@ if __name__ == "__main__":
     LOG.FATAL("Could not load configuration file '%s' - %s" % (cfg, ex))
   # Process command line arguments
   parser = OptionParser()
+  parser.add_option("-d", "--debug", action="store_true", default=False, dest="debug")
   parser.add_option("-n", "--no-optimise", action="store_false", default=True, dest="optimise")
   parser.add_option("-o", "--output", action="store", type="string", dest="output")
   parser.add_option("-p", "--panel", action="store", type="string", dest="panel")
@@ -299,6 +298,10 @@ if __name__ == "__main__":
   for required in ("output", "panel"):
     if getattr(options, required) is None:
       LOG.FATAL("Missing required option '%s'" % required)
+  if options.debug:
+    LOG.severity = Logger.MSG_DEBUG
+  else:
+    LOG.severity = Logger.MSG_INFO
   # Set up the panel
   try:
     panel = Panel(options.panel)
@@ -319,94 +322,13 @@ if __name__ == "__main__":
   # Make sure they can reasonably fit
   if area(*boards) > panel.area():
     LOG.FATAL("This board combination cannot fit on the selected panel - board area = %0.2f, panel area = %0.2f" % (area(*boards), panel.area()))
+  # Do the layout
+  if not panel.layout(*boards):
+    LOG.FATAL("Unable to find a combination that will fit")
+  # Show the current layout
+  panel.createImage("%s.png" % options.output)
+  LOG.INFO("Selected layout ...")
+  for board in panel.layout:
+    if board.name <> "_lock_":
+      LOG.INFO("  %s" % board)
 
-"""
-  # Process command line
-  boards = list()
-  index = 1
-  while index < len(argv):
-    if argv[index] == "--width":
-      index = index + 1
-      PANEL_WIDTH = float(argv[index])
-    elif argv[index] == "--height":
-      index = index + 1
-      PANEL_HEIGHT = float(argv[index])
-    elif argv[index] == "--space":
-      index = index + 1
-      PANEL_SPACING = float(argv[index])
-    elif argv[index] == "--noopt":
-      OPTIMISE = False
-    else:
-      boards.append(loadBoard(argv[index]))
-    index = index + 1
-  # Make sure we have some boards to work with
-  if len(boards) == 0:
-    print "ERROR: No boards specified."
-    exit(1)
-  # Create the panel we want to put the boards in
-  panel = Board(PANEL_WIDTH - PANEL_SPACING, PANEL_HEIGHT - PANEL_SPACING)
-  # Make sure the boards will fit the panel
-  print "Checking dimensions ..."
-  failed = False
-  if sum([board.area() for board in boards]) > panel.area():
-    print "  ERROR: This combination of boards will not fit the given panel"
-    failed = True
-  for board in boards:
-    if ((board.width > panel.width) and (board.width > panel.height)) or ((board.height > panel.height) and (board.height > panel.width)):
-      print "  ERROR: Board '%s' is too large for the given panel." % board.name
-      print "         Board size is %0.2f x %0.2f, panel is %0.2f x %0.2f." % (board.width, board.height, panel.width, panel.height)
-      failed = True
-  if failed:
-    print "  ERROR: Cannot continue with the current settings."
-    exit(1)
-  print "  OK"
-  # Process each iteration in turn
-  print "Laying out boards ..."
-  best = None
-  for iteration in range(2 ** len(boards)):
-    candidate = getIteration(iteration, boards)
-    if layout(panel, candidate):
-      area = consumedArea(candidate)
-      if (best is None) or (area < consumedArea(best)):
-        best = candidate
-        print "  Selecting iteration #%d with area %0.2f mm2" % (iteration, area)
-  # Did we get a usable layout?
-  if best is None:
-    print "  ERROR: No suitable layout found."
-    exit(1)
-  # Adjust for spacing
-  boards = list()
-  for board in best:
-    adjust = board.clone(-PANEL_SPACING, -PANEL_SPACING)
-    adjust.rotated = board.rotated
-    adjust.translate(board.x + PANEL_SPACING, board.y + PANEL_SPACING)
-    boards.append(adjust)
-  # Show the results
-  print "Selected layout:"
-  for board in boards:
-    print "  '%s' (%0.2f x %0.2f) @ %0.2f, %0.2f - rotated = %s" % (board.name, board.width, board.height, board.x, board.y, board.rotated)
-  createLayoutImage(panel, boards, "pcbpack.png")
-  print "Layout image saved in 'pcbpack.png'"
-  print "Generating combined g-code ..."
-  for filetype in range(3):
-    lines = list()
-    for board in boards:
-      lines.extend(board.getAdjustedCode(filetype))
-    # Add a program stop
-    lines.append("M02 (Program stop)\n")
-    # Optimise if requested (except edgemill)
-    if OPTIMISE and (filetype <> 2):
-      print "  Optimising .."
-      lines = runTool(OPTIMISER, "", lines)
-      lines.append("M02 (Program stop)\n")
-    # Repair arcs
-    print "  Repairing arcs ..."
-    lines = repairArcs(lines)
-    # Save the file
-    filename = getCodeFile("pcbpack", filetype)
-    print "  %s" % filename
-    with open(filename, "w") as gcode:
-      for line in lines:
-        gcode.write(line)
-  print "Operation complete."
-"""
