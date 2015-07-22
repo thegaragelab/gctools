@@ -5,6 +5,7 @@
 # Reworking the gcode loader and filter process.
 #----------------------------------------------------------------------------
 import re
+from PIL import Image, ImageDraw
 
 # Set up the regular expression for processing G-Code
 REGCODE = re.compile("(([A-Z])((-?[0-9]+)\.?([0-9]+)?))|(\(.*\))")
@@ -181,7 +182,7 @@ class GCode(Loader):
         for param in PARAMS:
           p = getattr(cmd, param)
           if p is not None:
-            setattr(cmd, param, p * 2.54)
+            setattr(cmd, param, p * 25.4)
       if cmd.command == GCode.INCH:
         cmd.command = GCode.MM
         cmd.comment = "(use mm)"
@@ -205,6 +206,48 @@ class GCode(Loader):
       result._addLine(cmd)
     # All done
     return result
+
+  def render(self, filename, cutdepth = 0.0, showall = False):
+    """ Render the gcode to an image file for visualisation
+    """
+    pixelsPerMM = 10.0
+    # Calculate size
+    width = int(pixelsPerMM * (10.0 + self.maxx - min(self.minx, 0.0)))
+    height = int(pixelsPerMM * (10.0 + self.maxy - min(self.miny, 0.0)))
+    # Calculate translation (in pixels)
+    dx = int(pixelsPerMM * (5.0 + min(self.minx, 0.0)))
+    dy = int(pixelsPerMM * (5.0 + min(self.minx, 0.0)))
+    # Create the image
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    drw = ImageDraw.Draw(img)
+    # Draw the axis
+    drw.line((0, dy, width, dy), fill = "black", width = 1)
+    drw.line((dx, 0, dx, height), fill = "black", width = 1)
+    # Draw the actual image
+    x, y, z = 0.0, 0.0, 0.0
+    for cmd in self.lines:
+      if cmd.command in ("G00", "G01", "G02", "G03"):
+        # Check for X/Y movement
+        nx = cmd.X or x
+        ny = cmd.Y or y
+        if (x <> nx) or (y <> ny):
+          path = (
+            dx + (pixelsPerMM * x),
+            dy + (pixelsPerMM * y),
+            dx + (pixelsPerMM * nx),
+            dy + (pixelsPerMM * ny)
+            )
+          if z < 0.0:
+            # Cutting movement
+            drw.line(path, fill = "blue", width = 1)
+          elif showall:
+            # Positioning
+            drw.line(path, fill = "red", width = 1)
+        # Save new position
+        x, y, z = nx, ny, cmd.Z or z
+    # Save the image
+    img = img.transpose(Image.FLIP_TOP_BOTTOM)
+    img.save(filename)
 
   def __str__(self):
     bounds = ( self.minx, self.maxx, self.miny, self.maxy, self.minz, self.maxz )
@@ -253,9 +296,15 @@ def saveGCode(filename, gcode, prefix = None, suffix = None):
 if __name__ == "__main__":
   gc1 = loadGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.ngc")
   gc2 = gc1.clone()
+  gc3 = loadGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_ISOLATION_GCODE.ngc")
   print gc1
   print gc2
+  print gc3
   saveGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.1.ngc", gc1)
+  gc1.render("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.1.png")
   saveGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.2.ngc", gc2)
+  gc2.render("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.2.png", showall = True)
+  saveGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_ISOLATION_GCODE.1.ngc", gc2)
+  gc3.render("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_ISOLATION_GCODE.1.png")
 
 
