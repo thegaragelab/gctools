@@ -32,6 +32,8 @@ class GCommand:
       line = line[:i - 1]
     line = line.strip()
     self.command = ""
+    for p in PARAMS:
+      setattr(self, p, None)
     if len(line) > 0:
       # Now we should just have command and arguments
       #
@@ -51,8 +53,7 @@ class GCommand:
     result.command = self.command
     result.comment = self.comment
     for p in PARAMS:
-      if hasattr(self, p):
-        setattr(result, p, getattr(self, p))
+      setattr(result, p, getattr(self, p))
     return result
 
   def __str__(self):
@@ -60,8 +61,9 @@ class GCommand:
     """
     result = self.command
     for param in PARAMS:
-      if hasattr(self, param):
-        result = "%s %s%0.4f" % (result, param, getattr(self, param))
+      p = getattr(self, param)
+      if p is not None:
+        result = "%s %s%0.4f" % (result, param, p)
     result = "%s %s" % (result, self.comment)
     return result.strip()
 
@@ -84,6 +86,24 @@ class Filter:
     """ Called with a GCommand instance, must return a new (or the same)
         instance to replace it.
     """
+    return command
+
+class FilterChain(Filter):
+  """ A wrapper for a group of filters
+  """
+
+  def __init__(self, *filters):
+    """ Store the filters
+    """
+    self.filters = filters
+
+  def apply(self, command):
+    """ Called with a GCommand instance, must return a new (or the same)
+        instance to replace it.
+    """
+    for f in self.filters:
+      if command is not None:
+        command = f.apply(command)
     return command
 
 class GCode(Loader):
@@ -131,12 +151,12 @@ class GCode(Loader):
       return
     self.lines.append(cmd)
     # Update bounds
-    self.minx = self._minVal(self.minx, getattr(cmd, "X", None))
-    self.maxx = self._maxVal(self.maxx, getattr(cmd, "X", None))
-    self.miny = self._minVal(self.miny, getattr(cmd, "Y", None))
-    self.maxy = self._maxVal(self.maxy, getattr(cmd, "Y", None))
-    self.minz = self._minVal(self.minz, getattr(cmd, "Z", None))
-    self.maxz = self._maxVal(self.maxz, getattr(cmd, "Z", None))
+    self.minx = self._minVal(self.minx, cmd.X)
+    self.maxx = self._maxVal(self.maxx, cmd.X)
+    self.miny = self._minVal(self.miny, cmd.Y)
+    self.maxy = self._maxVal(self.maxy, cmd.Y)
+    self.minz = self._minVal(self.minz, cmd.Z)
+    self.maxz = self._maxVal(self.maxz, cmd.Z)
 
   def parse(self, line):
     """ Parse the line and return a GCommand instance for it
@@ -153,9 +173,10 @@ class GCode(Loader):
     if cmd is not None:
       # Convert to MM
       if self.units == GCode.INCH:
-        for p in PARAMS:
-          if hasattr(cmd, p):
-            setattr(cmd, p, getattr(cmd, p) * 2.54)
+        for param in PARAMS:
+          p = getattr(cmd, param)
+          if p is not None:
+            setattr(cmd, param, p * 2.54)
       if cmd.command == GCode.INCH:
         cmd.command = GCode.MM
         cmd.comment = "(use mm)"
