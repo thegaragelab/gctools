@@ -41,7 +41,12 @@ class GCommand:
       # (u'X10.768569', u'X', u'10.768569', u'10', u'768569', u'')
       parts = list([ list(cmd) for cmd in REGCODE.findall(line) ])
       if len(parts) > 0:
-        self.command = parts[0][0]
+        # Make sure the command looks like Gnn or Gnn.n
+        if float(parts[0][2]) == float(parts[0][3]):
+          self.command = "%s%02d" % (parts[0][1], int(parts[0][3]))
+        else:
+          self.command = "%s%02.1f" % (parts[0][1], float(parts[0][2]))
+        # Process the rest
         for p in parts[1:]:
           if p[1] in PARAMS:
             setattr(self, str(p[1]), float(p[2]))
