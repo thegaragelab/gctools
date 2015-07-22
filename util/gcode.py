@@ -44,6 +44,17 @@ class GCommand:
           if p[1] in PARAMS:
             setattr(self, str(p[1]), float(p[2]))
 
+  def clone(self):
+    """ Create a copy of this instance
+    """
+    result = GCommand()
+    result.command = self.command
+    result.comment = self.comment
+    for p in PARAMS:
+      if hasattr(self, p):
+        setattr(result, p, getattr(self, p))
+    return result
+
   def __str__(self):
     """ Convert the command back into a string
     """
@@ -87,6 +98,45 @@ class GCode(Loader):
     self.loader = loader
     self.units = None
     self.lines = list()
+    self.minx, self.maxx = None, None
+    self.miny, self.maxy = None, None
+    self.minz, self.maxz = None, None
+
+  def _minVal(self, a, b):
+    """ Get the minimum of two values allowing for None
+    """
+    if (a is None) and (b is None):
+      return None
+    if (a is None) and (b is not None):
+      return b
+    if (b is None) and (a is not None):
+      return a
+    return min(a, b)
+
+  def _maxVal(self, a, b):
+    """ Get the maximum of two values allowing for None
+    """
+    if (a is None) and (b is None):
+      return None
+    if (a is None) and (b is not None):
+      return b
+    if (b is None) and (a is not None):
+      return a
+    return max(a, b)
+
+  def _addLine(self, cmd):
+    """ Add a line to the current set
+    """
+    if cmd is None:
+      return
+    self.lines.append(cmd)
+    # Update bounds
+    self.minx = self._minVal(self.minx, getattr(cmd, "X", None))
+    self.maxx = self._maxVal(self.maxx, getattr(cmd, "X", None))
+    self.miny = self._minVal(self.miny, getattr(cmd, "Y", None))
+    self.maxy = self._maxVal(self.maxy, getattr(cmd, "Y", None))
+    self.minz = self._minVal(self.minz, getattr(cmd, "Z", None))
+    self.maxz = self._maxVal(self.maxz, getattr(cmd, "Z", None))
 
   def parse(self, line):
     """ Parse the line and return a GCommand instance for it
@@ -109,8 +159,30 @@ class GCode(Loader):
       if cmd.command == GCode.INCH:
         cmd.command = GCode.MM
         cmd.comment = "(use mm)"
-      self.lines.append(cmd)
+      self._addLine(cmd)
     return cmd
+
+  def clone(self, *filters):
+    """ Make a copy of this gcode object with optional filtering
+
+      If filters are provided they are executed in order.
+    """
+    result = GCode()
+    result.units = self.units
+    for cmd in self.lines:
+      cmd = cmd.clone()
+      # Apply filters
+      for f in filters:
+        if cmd is not None:
+          cmd = f.apply(cmd)
+      # Add the result to the new object
+      result._addLine(cmd)
+    # All done
+    return result
+
+  def __str__(self):
+    bounds = ( self.minx, self.maxx, self.miny, self.maxy, self.minz, self.maxz )
+    return "GCode - X: %0.4f, %0.4f Y: %0.4f, %0.4f Z: %0.4f, %0.4f" % bounds
 
 #----------------------------------------------------------------------------
 # File operations
@@ -129,6 +201,9 @@ def loadGCode(filename, *loaders):
     for line in source.readlines():
       for loader in results:
         loader.parse(str(line))
+  # Set all units to MM for each object
+  for r in results:
+    r.units = GCode.MM
   # Return the results
   if len(results) == 1:
     return results[0]
@@ -150,7 +225,11 @@ def saveGCode(filename, gcode, prefix = None, suffix = None):
 #----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-  gcode = loadGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.ngc")
-  saveGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.2.ngc", gcode)
+  gc1 = loadGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.ngc")
+  gc2 = gc1.clone()
+  print gc1
+  print gc2
+  saveGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.1.ngc", gc1)
+  saveGCode("C:\\Shane\\Sandbox\\gctools\\samples\\attiny84_EDGEMILL_GCODE.2.ngc", gc2)
 
 
