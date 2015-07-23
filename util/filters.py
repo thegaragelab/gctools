@@ -5,6 +5,7 @@
 # A simple set of filters.
 #----------------------------------------------------------------------------
 from gcode import Filter, GCommand
+from math import sin, cos, radians
 
 class SwapXY(Filter):
   """ Swap X/Y (and I/J) co-ordinates
@@ -36,4 +37,23 @@ class Translate(Filter):
     for p in ("Z", "K"):
       if getattr(command, p) is not None:
         setattr(result, p, getattr(command, p) + self.dz)
+
+class Rotate(Filter):
+  """ Rotate around the origin
+  """
+
+  def __init__(self, angle):
+    """ Set the rotation angle
+    """
+    self.angle = radians(angle)
+
+  def apply(self, command):
+    result = command.clone()
+    if (command.X is not None) and (command.Y is not None):
+      result.X = (command.X * cos(self.angle)) - (command.Y * sin(self.angle))
+      result.Y = (command.X * sin(self.angle)) + (command.Y * cos(self.angle))
+    if (command.I is not None) and (command.J is not None):
+      result.I = (command.I * cos(self.angle)) - (command.J * sin(self.angle))
+      result.J = (command.I * sin(self.angle)) + (command.J * cos(self.angle))
+    return result
 
