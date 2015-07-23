@@ -261,8 +261,18 @@ class GCode(Loader):
           elif showall:
             # Positioning
             drw.line(path, fill = "red", width = 1)
+        # Check for touchdowns (or drill commands)
+        nz = cmd.Z or z
+        if (nz < 0.0) and (z > 0):
+          points = (
+            dx + (pixelsPerMM * nx) - 1,
+            dy + (pixelsPerMM * ny) - 1,
+            dx + (pixelsPerMM * nx) + 1,
+            dy + (pixelsPerMM * ny) + 1
+            )
+          drw.ellipse(points, fill = "blue")
         # Save new position
-        x, y, z = nx, ny, cmd.Z or z
+        x, y, z = nx, ny, nz
     # Save the image
     img = img.transpose(Image.FLIP_TOP_BOTTOM)
     img.save(filename)
