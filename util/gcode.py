@@ -89,8 +89,8 @@ class Filter:
   """
 
   def apply(self, command):
-    """ Called with a GCommand instance, must return a new (or the same)
-        instance to replace it.
+    """ Called with a GCommand instance the filter can return None to remove
+        the command, a replacement command or a list of replacements.
     """
     return command
 
@@ -104,12 +104,27 @@ class FilterChain(Filter):
     self.filters = filters
 
   def apply(self, command):
-    """ Called with a GCommand instance, must return a new (or the same)
-        instance to replace it.
+    """ Called with a GCommand instance the filter can return None to remove
+        the command, a replacement command or a list of replacements.
     """
     for f in self.filters:
-      if command is not None:
+      if command is None:
+        return None
+      if isinstance(command, GCommand):
         command = f.apply(command)
+      else:
+        results = list()
+        for cmd in command:
+          response = f.apply(cmd)
+          if response is not None:
+            if isinstance(response, GCommand):
+              results.append(response)
+            else:
+              results.extend(response)
+        if len(results) == 0:
+          command = None
+        else:
+          command = results
     return command
 
 class GCode(Loader):
@@ -194,16 +209,19 @@ class GCode(Loader):
 
       If filters are provided they are executed in order.
     """
+    chain = FilterChain(*filters)
     result = GCode()
     result.units = self.units
     for cmd in self.lines:
       cmd = cmd.clone()
       # Apply filters
-      for f in filters:
-        if cmd is not None:
-          cmd = f.apply(cmd)
-      # Add the result to the new object
-      result._addLine(cmd)
+      cmd = chain.apply(cmd)
+      if cmd is not None:
+        if isinstance(cmd, GCommand):
+          result._addLine(cmd)
+        else:
+          for c in cmd:
+            result._addLine(c)
     # All done
     return result
 
