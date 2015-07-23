@@ -233,8 +233,8 @@ class GCode(Loader):
     width = int(pixelsPerMM * (10.0 + self.maxx - min(self.minx, 0.0)))
     height = int(pixelsPerMM * (10.0 + self.maxy - min(self.miny, 0.0)))
     # Calculate translation (in pixels)
-    dx = int(pixelsPerMM * (5.0 + min(self.minx, 0.0)))
-    dy = int(pixelsPerMM * (5.0 + min(self.minx, 0.0)))
+    dx = int(pixelsPerMM * (5.0 + abs(min(self.minx, 0.0))))
+    dy = int(pixelsPerMM * (5.0 + abs(min(self.miny, 0.0))))
     # Create the image
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     drw = ImageDraw.Draw(img)
