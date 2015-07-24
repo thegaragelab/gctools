@@ -5,30 +5,43 @@
 # A simple program to determine the dimensions and units of a g-code file.
 #----------------------------------------------------------------------------
 from sys import argv
-from gcode import Bounds, loadGCode
+from optparse import OptionParser
+from os.path import splitext
+from util.gcode import loadGCode
 
 #--- Usage information
 USAGE = """
 Usage:
-       %s filename
+       %s [--image] filename
+
+Where:
+
+  --image           generate an image of the file
 """
 
 #--- Main program
 if __name__ == "__main__":
-  # Check the command line arguments
-  if len(argv) <> 2:
+  # Set up program options
+  parser = OptionParser()
+  parser.add_option("-i", "--image", action="store_true", dest="image", default=False)
+  options, args = parser.parse_args()
+  # Check positional arguments
+  if len(args) <> 1:
     print USAGE.strip() % argv[0]
     exit(1)
-  # Now get the information
-  bounds = Bounds()
-  bounds.apply(loadGCode(argv[1]))
-  print "For g-code file '%s' ..." % argv[1]
-  if bounds.units is None:
-    print "  Units: undefined or multiple"
-  else:
-    print "  Units: %s" % bounds.units
-  print "  X min = %f, max = %f, size = %f" % (bounds.minx, bounds.maxx, bounds.maxx - bounds.minx)
-  print "  Y min = %f, max = %f, size = %f" % (bounds.miny, bounds.maxy, bounds.maxy - bounds.miny)
-  print "  Z min = %f, max = %f, size = %f" % (bounds.minz, bounds.maxz, bounds.maxz - bounds.minz)
-  print ""
-  print "  Area: %f" % ((bounds.maxx - bounds.minx) * (bounds.maxy - bounds.miny))
+  # Load the Gcode and describe it
+  name, ext = splitext(args[0])
+  if ext == "":
+    ext = ".ngc"
+  filename = name + ext
+  gcode = loadGCode(filename)
+  print "For g-code file '%s' ...\n" % filename
+  print "  X min = %f, max = %f, size = %f (mm)" % (gcode.minx, gcode.maxx, gcode.maxx - gcode.minx)
+  print "  Y min = %f, max = %f, size = %f (mm)" % (gcode.miny, gcode.maxy, gcode.maxy - gcode.miny)
+  print "  Z min = %f, max = %f, size = %f (mm)" % (gcode.minz, gcode.maxz, gcode.maxz - gcode.minz)
+  print "\n  Area: %f mm^2" % ((gcode.maxx - gcode.minx) * (gcode.maxy - gcode.miny))
+  # Generat an image if requested
+  if options.image:
+    filename = name + ".png"
+    gcode.render(filename)
+
