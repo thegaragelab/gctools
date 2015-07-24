@@ -24,13 +24,15 @@ Where:
 GCODE_PREFIX = """
 G21 (Use mm)
 G90 (Set Absolute Coordinates)
-G0 Z%0.4f(Move clear of the board first)
+G0 Z%0.4f (Move clear of the board first)
+(end of prefix)
 """
 
 GCODE_SUFFIX = """
 (Operation complete)
 G0 X0 Y0 Z%0.4f
 M2
+%
 """
 
 def styleContains(style, values):

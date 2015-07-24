@@ -24,11 +24,13 @@ Where:
 GCODE_PREFIX = """
 G21 (Use mm)
 G90 (Set Absolute Coordinates)
-G0 Z%0.4f (Move to safe height)
-G0 X0 Y0 (Go home)
+G0 Z%0.4f (Move clear of the board first)
+(end of prefix)
 """
 
 GCODE_SUFFIX = """
+(Operation complete)
+G0 X0 Y0 Z%0.4f
 M2
 %
 """
@@ -67,5 +69,10 @@ if __name__ == "__main__":
     result.extend(processor.apply(original))
     depth = depth + delta
   # Write the output
-  saveGCode(options.output_file, result, prefix = GCODE_PREFIX % options.safe_depth, suffix = GCODE_SUFFIX)
+  saveGCode(
+    options.output_file,
+    result,
+    prefix = GCODE_PREFIX % options.safe_depth,
+    suffix = GCODE_SUFFIX % options.safe_depth
+    )
 
