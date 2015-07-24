@@ -1,0 +1,26 @@
+# This file contains default values for all tools as well as the standard
+# prefix and suffix to apply to generated files.
+{
+  "prefix": [
+    "G21 (Use mm)",
+    "G90 (Set Absolute Coordinates)",
+    "G17 (XY plane selection)",
+    "G00 Z${safe} (Move to safe height)",
+    "G00 Y0 X0 (Go home)",
+    "(End of prefix)"
+    ],
+  "suffix": [
+    "(Suffix)",
+    "M05 (Stop spindle)",
+    "G00 X0 Y0",
+    "M02 (Program End)"
+    ],
+  "defaults": {
+    # Safe height for rapid movements
+    "safe": 3.0,
+    # Cutting depth
+    "cut": -1.0,
+    # Feed rate for cutting operations
+    "feed": 254
+    }
+}
