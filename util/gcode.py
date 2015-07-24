@@ -165,11 +165,16 @@ class GCode(Loader):
       return a
     return max(a, b)
 
-  def _addLine(self, cmd):
-    """ Add a line to the current set
+  def append(self, cmd):
+    """ Append a command the file
+
+      The cmd parameter may be a GCommand instance or a string representing
+      a command. If it is a string it will be converted to a GCommand
     """
     if cmd is None:
       return
+    if not isinstance(cmd, GCommand):
+      cmd = GCommand(str(cmd))
     self.lines.append(cmd)
     # Update bounds
     self.minx = self._minVal(self.minx, cmd.X)
@@ -201,7 +206,7 @@ class GCode(Loader):
       if cmd.command == GCode.INCH:
         cmd.command = GCode.MM
         cmd.comment = "(use mm)"
-      self._addLine(cmd)
+      self.append(cmd)
     return cmd
 
   def clone(self, *filters):
@@ -218,10 +223,10 @@ class GCode(Loader):
       cmd = chain.apply(cmd)
       if cmd is not None:
         if isinstance(cmd, GCommand):
-          result._addLine(cmd)
+          result.append(cmd)
         else:
           for c in cmd:
-            result._addLine(c)
+            result.append(c)
     # All done
     return result
 
