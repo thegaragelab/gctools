@@ -283,8 +283,14 @@ class GCode(Loader):
     img.save(filename)
 
   def __str__(self):
+    def floatStr(val):
+      if val is not None:
+        return "%0.4f" % val
+      return "?"
+    # Represent as a string
     bounds = ( self.minx, self.maxx, self.miny, self.maxy, self.minz, self.maxz )
-    return "GCode - X: %0.4f, %0.4f Y: %0.4f, %0.4f Z: %0.4f, %0.4f" % bounds
+    bounds = tuple([ floatStr(x) for x in bounds ])
+    return "X: %s, %s Y: %s, %s Z: %s, %s" % bounds
 
 #----------------------------------------------------------------------------
 # File operations
