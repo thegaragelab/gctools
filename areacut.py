@@ -5,70 +5,103 @@
 # Generate a rectangular area cut.
 #----------------------------------------------------------------------------
 from sys import argv
+from os.path import splitext
 from optparse import OptionParser
-from gcode import ZLevel, loadGCode, saveGCode
+from util import GCode, saveGCode, getSettings
 
 #--- Usage information
 USAGE = """
 Usage:
-       %s [--cut depth] [--safe depth] [--width width] [--height height] [--tool size] filename
+       %s [options] filename
+
+Where options are:
+
+  --safe    depth   Safe depth for movements
+  --cut     depth   Cutting depth
+  --feed    rate    Feedrate for cutting operations
+  --tool    size    Tool diameter (in mm)
+  --width   width   Width of area to cut (mm)
+  --height  height  Height of are to cut (mm)
+  --overlap percent Percentage of overlap between cuts
+  --center          Start in the center of the area
+  --image           Generate an image of the final result
 """
 
-# Control information
-OVERLAP = 0.2
-MOVE_SPEED = 250
-CUT_SPEED = 120
-INSERT_SPEED = 25.4
+# Set up the control dictionary
+CONTROL = {
+  "safe":    3,
+  "cut":     -1,
+  "feed":    254,
+  "tool":    None,
+  "width":   None,
+  "height":  None,
+  "overlap": 20.0
+  }
 
-# Prefix code
-GCODE_PREFIX = """
-G21 (Use mm)
-G90 (Set Absolute Coordinates)
-G17 (XY plane selection)
-G00 Z%0.4f
-G00 Y0 X0 
-M03 (Start spindle)
-G04 P1 (Pause to let the spindle start)
-"""
+def centerCut(gcode):
+  """ Do a cut from the center outwards
+  """
+  """
+  # Start with a center line
+  center = options.width / 2
+  output.write("(Center line)\n")
+  output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, options.height - (options.toolsize / 2), MOVE_SPEED))
+  output.write("(Penetrate)\n")
+  output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
+  output.write("(Cut)\n")
+  output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (center, options.toolsize / 2, CUT_SPEED))
+  output.write("(Retract)\n")
+  output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
+  # Now do alternating cuts from the center line to each edge
+  left = options.toolsize / 2
+  right = options.width - (options.toolsize / 2)
+  top = options.height - (options.toolsize / 2)
+  current = options.toolsize / 2
+  while current < top:
+    # Do the left side
+    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, current, MOVE_SPEED))
+    output.write("(Penetrate)\n")
+    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
+    output.write("(Cut)\n")
+    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (left, current, CUT_SPEED))
+    output.write("(Retract)\n")
+    output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
+    # Do the right side
+    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, current, MOVE_SPEED))
+    output.write("(Penetrate)\n")
+    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
+    output.write("(Cut)\n")
+    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (right, current, CUT_SPEED))
+    output.write("(Retract)\n")
+    output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
+    # Move up
+    current = current + ((1 - OVERLAP) * options.toolsize)
+  # Do an additional pass for the final line if needed
+  if current != top:
+    current = top
+    # Do the left side
+    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, current, MOVE_SPEED))
+    output.write("(Penetrate)\n")
+    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
+    output.write("(Cut)\n")
+    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (left, current, CUT_SPEED))
+    output.write("(Retract)\n")
+    output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
+    # Do the right side
+    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, current, MOVE_SPEED))
+    output.write("(Penetrate)\n")
+    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
+    output.write("(Cut)\n")
+    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (right, current, CUT_SPEED))
+    output.write("(Retract)\n")
+    output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
+  """
+  pass
 
-# Suffix code
-GCODE_SUFFIX = """
-(Operation complete)
-M05 (Stop spindle)
-G00 X0 Y0
-M02 (Program End)
-"""
-
-#--- Main program
-if __name__ == "__main__":
-  # Set up program options
-  parser = OptionParser()
-  parser.add_option("-c", "--cut", action="store", type="float", dest="cut_depth", default=1.0)
-  parser.add_option("-s", "--safe", action="store", type="float", dest="safe_depth", default=3.0)
-  parser.add_option("-x", "--width", action="store", type="float", dest="width")
-  parser.add_option("-y", "--height", action="store", type="float", dest="height")
-  parser.add_option("-t", "--tool", action="store", type="float", dest="toolsize", default=3.0)
-  options, args = parser.parse_args()
-  # Make sure required arguments are present
-  for req in ("cut_depth", "safe_depth", "width", "height", "toolsize"):
-    if eval("options.%s" % req) is None:
-      print "ERROR: Missing required argument '%s'" % req
-      print USAGE.strip() % argv[0]
-      exit(1)
-  # Check positional arguments
-  if len(args) <> 1:
-    print USAGE.strip() % argv[0]
-    exit(1)
-  # Show current settings
-  print "Selected options:"
-  for opt in parser.option_list:
-    if opt.dest is not None:
-      print "  %s = %s" % (opt.dest, str(eval("options.%s" % opt.dest)))
-  # Start generating the file
-  print "Creating file '%s'" % args[0]
-  output = open(args[0], "w")
-  output.write(GCODE_PREFIX.strip() % (options.safe_depth) + "\n")
-  # Loop from the outside in
+def areaCut(gcode):
+  """ Do an area cut from outside to center
+  """
+  """
   width = options.width
   height = options.height
   x1 = options.toolsize / 2
@@ -110,7 +143,58 @@ if __name__ == "__main__":
     output.write("(Cut)\n")
     output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (x2, y2, CUT_SPEED))
     output.write("G01 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
-  # Finish generating the file
-  output.write(GCODE_SUFFIX.strip() + "\n")
-  output.close()
-  
+  """
+  pass
+
+#--- Main program
+if __name__ == "__main__":
+  # Set up program options
+  parser = OptionParser()
+  parser.add_option("-s", "--safe", action="store", type="float", dest="safe")
+  parser.add_option("-c", "--cut", action="store", type="float", dest="cut")
+  parser.add_option("-f", "--feed", action="store", type="float", dest="feed")
+  parser.add_option("-t", "--tool", action="store", type="float", dest="tool")
+  parser.add_option("-x", "--width", action="store", type="float", dest="width")
+  parser.add_option("-y", "--height", action="store", type="float", dest="height")
+  parser.add_option("-o", "--overlap", action="store", type="float", dest="overlap")
+  parser.add_option("-n", "--center", action="store_true", dest="center", default=False)
+  parser.add_option("-i", "--image", action="store_true", dest="image", default=False)
+  options, args = parser.parse_args()
+  # Make sure required arguments are present
+  for req in ("width", "height", "tool"):
+    if getattr(options, req, None) is None:
+      print "ERROR: Missing required argument '%s'" % req
+      print USAGE.strip() % argv[0]
+      exit(1)
+  # Check positional arguments
+  if len(args) <> 1:
+    print "ERROR: Missing output file"
+    print USAGE.strip() % argv[0]
+    exit(1)
+  # Load defaults
+  getSettings(CONTROL, options)
+  # Show current settings
+  print "Selected options:"
+  for k in sorted(CONTROL.keys()):
+    if not (k in ("prefix", "suffix")):
+      print "  %-10s: %s" % (k, str(CONTROL[k]))
+  # Get the filename
+  name, ext = splitext(args[0])
+  if ext == "":
+    ext = ".ngc"
+  filename = name + ext
+  # Generate the gcode
+  print "\nCreating file '%s'" % args[0]
+  gcode = GCode()
+  if options.center:
+    centerCut(gcode)
+  else:
+    areaCut(gcode)
+  # Save the result
+  saveGCode(filename, gcode, prefix = CONTROL['prefix'], suffix = CONTROL['suffix'])
+  print "  %s" % str(gcode)
+  # Save the image (if requested)
+  if options.image:
+    filename = name + ".png"
+    gcode.render(filename, showAll = True)
+    print "Generated image '%s'" % filename
