@@ -34,7 +34,7 @@ if __name__ == "__main__":
     exit(1)
   # Make sure required arguments are present
   for req in ("output", "angle"):
-    if not hasattr(options, req):
+    if getattr(options, req) is None:
       print "ERROR: Missing required argument '%s'" % req
       print USAGE.strip() % argv[0]
       exit(1)
