@@ -19,9 +19,10 @@
 #
 # Tool to pack multiple PCB g-code files into a single panel.
 #----------------------------------------------------------------------------
-from util import LOG, Logger, fromJSONFile
+from util import *
 from random import randint
-from os.path import realpath, splitext, exists
+from os import listdir
+from os.path import realpath, splitext, exists, join
 from optparse import OptionParser
 from PIL import Image, ImageDraw
 
@@ -51,6 +52,19 @@ def rotations(boards):
         board.rotated = True
       candidate.append(board)
     yield sorted(candidate, cmp = lambda x, y: cmp(x.h, y.h), reverse = True)
+
+def findFile(path, filename):
+  """ Find a file that ends with the given filename in the path
+
+    Fails if more than one matching file exists or no files exist.
+  """
+  result = list()
+  for f in listdir(path):
+    if f.endswith(filename):
+      result.append(f)
+  if len(result) <> 1:
+    return None
+  return join(path, result[0])
 
 #----------------------------------------------------------------------------
 # Manage board positioning
@@ -135,6 +149,64 @@ class BoardPosition:
     copy.x = self.x
     copy.y = self.y
     return copy
+
+#----------------------------------------------------------------------------
+# Manage PCBs
+#
+# A PCB is represented by a collection of gcode and excellon drill files.
+#----------------------------------------------------------------------------
+
+class PCB:
+  """ Represent a single PCB
+  """
+
+  def __init__(self, name):
+    """ Constructor
+
+      Verify that all the files needed exist and load them
+    """
+    global CONFIG
+    path = join(realpath(CONFIG['boards']), name)
+    if not exists(path):
+      raise Exception("No board directory found at '%s'" % path)
+    # Set up basics
+    self.name = name
+    self.padding = 2.0 # TODO: Should be in config
+    # Load the board outline
+    filename = findFile(path, "Board Outline_EDGEMILL_GCODE.ngc")
+    if filename is None:
+      raise Exception("Missing board outline for '%s'" % name)
+    self.outline = loadGCode(filename) # TODO: Should be boxed
+    self.dx = -self.outline.minx
+    self.dy = -self.outline.miny
+    self.outline = self.outline.clone(Translate(self.dx, self.dy))
+    # TODO: Load the top copper (if present)
+    self.top = None
+    # Load the bottom copper
+    filename = findFile(path, "Bottom Copper_ISOLATION_GCODE.ngc")
+    if filename is None:
+      raise Exception("Missing bottom copper for '%s'" % name)
+    self.bottom = loadGCode(filename) # TODO: Should be boxed
+    self.bottom = self.bottom.clone(Translate(self.dx, self.dy))
+
+  def getBoard(self):
+    """ Return a BoardPosition for this PCB
+    """
+    return BoardPosition(self.name, self.outline.maxx + (2 * self.padding), self.outline.maxy + (2 * self.padding))
+
+  def generateTopCopper(self, gcode, position):
+    pass
+
+  def generateBottomCopper(self, gcode, position):
+    pass
+
+  def generateOutline(self, gcode, position):
+    """ Generate the board outline gcode given the position
+    """
+    pass
+
+  def generateDrills(self, drills, position):
+    pass
 
 #----------------------------------------------------------------------------
 # Manage panel layout
@@ -309,11 +381,15 @@ if __name__ == "__main__":
     LOG.FATAL("Could not load panel defintion '%s'" % options.panel)
   LOG.DEBUG("Panel - %s" % panel)
   # Load boards
+  pcbs = dict()
   boards = list()
   for name in args:
-    board = loadBoard(name)
-    if board is None:
-      LOG.FATAL("Could not find board '%s' in repository" % name)
+    if not pcbs.has_key(name):
+      try:
+        pcbs[name] = PCB(name)
+      except Exception, ex:
+        LOG.FATAL(str(ex))
+    board = pcbs[name].getBoard()
     if not panel.willFit(board):
       LOG.FATAL("Board %s will not fit on this panel" % name)
     boards.append(board)
@@ -331,4 +407,28 @@ if __name__ == "__main__":
   for board in panel.layout:
     if board.name <> "_lock_":
       LOG.INFO("  %s" % board)
+  # Now we generate the output files
+  top = GCode()
+  bottom = GCode()
+  outline = GCode()
+  drills = dict()
+  for board in panel.layout:
+    if board.name <> "_lock_":
+      pcbs[board.name].generateTopCopper(top, board)
+      pcbs[board.name].generateBottomCopper(bottom, board)
+      pcbs[board.name].generateOutline(outline, board)
+      pcbs[board.name].generateDrills(drills, board)
+  # Save all the main files
+  settings = getSettings(dict(), options)
+  for filename, gcode in (("_01_top.ngc", top), ("_02_bottom.ngc", bottom), ("_99_outline.ngc", outline)):
+    filename = options.output + filename
+    LOG.INFO("Generating %s" % filename)
+    saveGCode(filename, gcode, prefix = settings['prefix'], suffix = settings['suffix'])
+  # Save the drill files
+  index = 3
+  for diam in sorted(drills.keys()):
+    filename = "%s_%02d_drill_%0.4f.ngc" % (options.output, index, float(diam))
+    LOG.INFO("Generating %s" % filename)
+    saveGCode(filename, drills[diam], prefix = settings['prefix'], suffix = settings['suffix'])
+    index = index + 1
 
