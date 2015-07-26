@@ -183,16 +183,20 @@ class GCode(Loader):
     """
     if cmd is None:
       return
-    if not isinstance(cmd, GCommand):
-      cmd = GCommand(str(cmd))
-    self.lines.append(cmd)
-    # Update bounds
-    self.minx = self._minVal(self.minx, cmd.X)
-    self.maxx = self._maxVal(self.maxx, cmd.X)
-    self.miny = self._minVal(self.miny, cmd.Y)
-    self.maxy = self._maxVal(self.maxy, cmd.Y)
-    self.minz = self._minVal(self.minz, cmd.Z)
-    self.maxz = self._maxVal(self.maxz, cmd.Z)
+    if isinstance(cmd, GCode):
+      for c in cmd.lines:
+        self.append(c)
+    else:
+      if not isinstance(cmd, GCommand):
+        cmd = GCommand(str(cmd))
+      self.lines.append(cmd)
+      # Update bounds
+      self.minx = self._minVal(self.minx, cmd.X)
+      self.maxx = self._maxVal(self.maxx, cmd.X)
+      self.miny = self._minVal(self.miny, cmd.Y)
+      self.maxy = self._maxVal(self.maxy, cmd.Y)
+      self.minz = self._minVal(self.minz, cmd.Z)
+      self.maxz = self._maxVal(self.maxz, cmd.Z)
 
   def parse(self, line):
     """ Parse the line and return a GCommand instance for it
