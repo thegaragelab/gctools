@@ -58,3 +58,27 @@ class Rotate(Filter):
       result.J = (command.I * sin(self.angle)) + (command.J * cos(self.angle))
     return result
 
+class Flip(Filter):
+  """ Flip X and or Y points around a given center point
+  """
+
+  def __init__(self, xflip = None, yflip = None):
+    """ Set the rotation angle
+    """
+    self.xflip = xflip
+    self.yflip = yflip
+
+  def apply(self, command):
+    result = command.clone()
+    if self.xflip is not None:
+      if command.X is not None:
+        result.X = self.xflip - (command.X - self.xflip)
+      if command.I is not None:
+        result.I = self.xflip - (command.I - self.xflip)
+    if self.yflip is not None:
+      if command.Y is not None:
+        result.Y = self.yflip - (command.Y - self.yflip)
+      if command.J is not None:
+        result.J = self.yflip - (command.J - self.yflip)
+    return result
+
