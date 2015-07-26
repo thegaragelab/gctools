@@ -186,7 +186,7 @@ class PCB:
     filename = findFile(path, "Bottom Copper_ISOLATION_GCODE.ngc")
     if filename is None:
       raise Exception("Missing bottom copper for '%s'" % name)
-    self.bottom = loadGCode(filename) # TODO: Should be boxed
+    self.bottom = loadGCode(filename, BoxedLoader(start = GCommand("G04 P1"), end = GCommand("G00 X0 Y0"), inclusive = False))
     self.bottom = self.bottom.clone(Translate(self.dx, self.dy))
 
   def _rotate(self, gcode):
@@ -203,7 +203,17 @@ class PCB:
     pass
 
   def generateBottomCopper(self, gcode, position):
-    pass
+    if self.bottom is None:
+      return
+    bottom = self.bottom
+    # Rotate if needed
+    if position.rotated:
+      bottom = self._rotate(bottom)
+    # Translate to the right spot
+    bottom = bottom.clone(Translate(self.padding + position.x, self.padding + position.y))
+    # Add to the full gcode
+    gcode.append("(INFO: %s @ %04.f, %0.4f rot = %s)" % (self.name, position.x, position.y, position.rotated))
+    gcode.append(bottom)
 
   def generateOutline(self, gcode, position):
     """ Generate the board outline gcode given the position
@@ -213,7 +223,7 @@ class PCB:
     if position.rotated:
       outline = self._rotate(outline)
     # Translate to the right spot
-    outline = outline.clone(Translate(position.x, position.y))
+    outline = outline.clone(Translate(self.padding + position.x, self.padding + position.y))
     # Add to the full gcode
     gcode.append("(INFO: %s @ %04.f, %0.4f rot = %s)" % (self.name, position.x, position.y, position.rotated))
     gcode.append(outline)
