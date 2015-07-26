@@ -41,5 +41,7 @@ class BoxedLoader(Loader):
         self.accepting = True
         if not self.inclusive:
           command = None
+      else:
+        command = None
     return command
 
