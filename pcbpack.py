@@ -234,8 +234,12 @@ class PCB:
           gcd.append("G00 Z3")
         # Adjust to match the rest of the files
         self.drills[diam] = gcd.clone(Flip(xflip = self.midpoint), Translate(self.dx, self.dy))
-    # TODO: Load the top copper (if present)
+    # Load the top copper (if present)
     self.top = None
+    filename = findFile(path, "Top Copper_ISOLATION_GCODE.ngc")
+    if filename is not None:
+      self.top = loadGCode(filename, BoxedLoader(start = GCommand("G04 P1"), end = GCommand("G00 X0 Y0"), inclusive = False))
+      self.top = self.top.clone(Translate(self.dx, self.dy))
     # Load the bottom copper
     filename = findFile(path, "Bottom Copper_ISOLATION_GCODE.ngc")
     if filename is None:
@@ -253,7 +257,8 @@ class PCB:
     """
     return BoardPosition(self.name, self.outline.maxx + (2 * self.padding), self.outline.maxy + (2 * self.padding))
 
-  def generateTopCopper(self, gcode, position):
+  def generateTopCopper(self, gcode, position, panel_height):
+    # TODO: This is harder than it looks :(
     pass
 
   def generateBottomCopper(self, gcode, position):
@@ -406,6 +411,7 @@ class Panel:
       drw.rectangle(rect, fill = "black")
       rect = (rect[0] + 1, rect[1] + 1, rect[2] - 1, rect[3] - 1)
       drw.rectangle(rect, fill = color)
+    img = img.transpose(Image.FLIP_TOP_BOTTOM)
     img.save(filename)
 
   def __str__(self):
@@ -504,7 +510,7 @@ if __name__ == "__main__":
   drills = dict()
   for board in panel.layout:
     if board.name <> "_lock_":
-      pcbs[board.name].generateTopCopper(top, board)
+      pcbs[board.name].generateTopCopper(top, board, panel.h)
       pcbs[board.name].generateBottomCopper(bottom, board)
       pcbs[board.name].generateOutline(outline, board)
       pcbs[board.name].generateDrills(drills, board)
@@ -515,6 +521,7 @@ if __name__ == "__main__":
       filename = options.output + filename
       LOG.INFO("Generating %s" % filename)
       saveGCode(filename, gcode, prefix = settings['prefix'], suffix = settings['suffix'])
+      LOG.INFO("  %s" % str(gcode))
       gcode.render(splitext(filename)[0] + ".png")
   # Save the drill files
   index = 3
@@ -522,6 +529,7 @@ if __name__ == "__main__":
     filename = "%s_%02d_drill_%0.1f.ngc" % (options.output, index, float(diam))
     LOG.INFO("Generating %s" % filename)
     saveGCode(filename, drills[diam], prefix = settings['prefix'], suffix = settings['suffix'])
+    LOG.INFO("  %s" % str(drills[diam]))
     drills[diam].render(splitext(filename)[0] + ".png")
     index = index + 1
 
