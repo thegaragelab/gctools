@@ -26,6 +26,7 @@
 # Tool to pack multiple PCB g-code files into a single panel.
 #----------------------------------------------------------------------------
 from util import *
+from string import Template
 from random import randint
 from os import listdir
 from os.path import realpath, splitext, exists, join
@@ -34,6 +35,29 @@ from PIL import Image, ImageDraw
 
 #--- Globals
 CONFIG = None
+
+#--- Template for OpenSCAM project
+OPENSCAM_XML = """
+<openscam>
+  <!-- Note, all values are in mm regardless of 'units' option. -->
+  <!-- NC Files -->
+  <nc-files>
+    ${filenames}
+  </nc-files>
+
+  <!-- Renderer -->
+  <resolution v='0.355689'/>
+
+  <!-- Workpiece -->
+  <automatic-workpiece v='false'/>
+  <workpiece-max v='(${panel_width},${panel_height},1)'/>
+  <workpiece-min v='(0,0,0)'/>
+
+  <tool_table>
+    <tool length='10' number='1' radius='0.25' shape='CYLINDRICAL' units='MM'/>
+  </tool_table>
+</openscam>
+"""
 
 #----------------------------------------------------------------------------
 # Helper functions
@@ -515,10 +539,15 @@ if __name__ == "__main__":
       pcbs[board.name].generateOutline(outline, board)
       pcbs[board.name].generateDrills(drills, board)
   # Save all the main files
+  filenames = list()
   settings = getSettings({ "safe": 5.0 }, options)
   for filename, gcode in (("_01_top.ngc", top), ("_02_bottom.ngc", bottom), ("_99_outline.ngc", outline)):
     if gcode.minx is not None:
+      # Correct arcs
+      gcode = gcode.clone(CorrectArc())
+      # Write the file
       filename = options.output + filename
+      filenames.append(filename)
       LOG.INFO("Generating %s" % filename)
       saveGCode(filename, gcode, prefix = settings['prefix'], suffix = settings['suffix'])
       LOG.INFO("  %s" % str(gcode))
@@ -526,10 +555,21 @@ if __name__ == "__main__":
   # Save the drill files
   index = 3
   for diam in sorted(drills.keys()):
+    # Correct arcs
+    drills[diam] = drills[diam].clone(CorrectArc())
+    # Write the file
     filename = "%s_%02d_drill_%0.1f.ngc" % (options.output, index, float(diam))
+    filenames.append(filename)
     LOG.INFO("Generating %s" % filename)
     saveGCode(filename, drills[diam], prefix = settings['prefix'], suffix = settings['suffix'])
     LOG.INFO("  %s" % str(drills[diam]))
     drills[diam].render(splitext(filename)[0] + ".png")
     index = index + 1
+  # Finally generate a OpenSCAM project with all the files
+  with open("%s.xml" % options.output, "w") as output:
+    output.write(Template(OPENSCAM_XML).safe_substitute({
+      "panel_width": str(panel.w),
+      "panel_height": str(panel.h),
+      "filenames": " ".join(filenames)
+      }))
 
