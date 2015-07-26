@@ -37,6 +37,7 @@ class Translate(Filter):
     for p in ("Z", "K"):
       if getattr(command, p) is not None:
         setattr(result, p, getattr(command, p) + self.dz)
+    return result
 
 class Rotate(Filter):
   """ Rotate around the origin
