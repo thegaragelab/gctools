@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw
 REGCODE = re.compile("(([A-Z])((-?[0-9]+)\.?([0-9]+)?))|(\(.*\))")
 
 # Supported parameter words
-PARAMS = ("X", "Y", "Z", "I", "J", "K", "R", "F")
+PARAMS = ("X", "Y", "Z", "I", "J", "K", "R", "F", "P")
 
 #----------------------------------------------------------------------------
 # Public classes
@@ -61,6 +61,16 @@ class GCommand:
     for p in PARAMS:
       setattr(result, p, getattr(self, p))
     return result
+
+  def matches(self, other):
+    """ Determine if this command matches the other
+    """
+    if self.command <> other.command:
+      return False
+    for p in PARAMS:
+      if getattr(self, p) <> getattr(other, p):
+        return False
+    return True
 
   def __str__(self):
     """ Convert the command back into a string
