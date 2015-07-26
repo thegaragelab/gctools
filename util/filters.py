@@ -14,7 +14,7 @@ class SwapXY(Filter):
   def apply(self, command):
     result = command.clone()
     result.X, result.Y = command.Y, command.X
-    result.I, result.J = command.J, command.Y
+    result.I, result.J = command.J, command.I
     return result
 
 class Translate(Filter):
@@ -28,15 +28,12 @@ class Translate(Filter):
 
   def apply(self, command):
     result = command.clone()
-    for p in ("X", "I"):
-      if getattr(command, p) is not None:
-        setattr(result, p, getattr(command, p) + self.dx)
-    for p in ("Y", "J"):
-      if getattr(command, p) is not None:
-        setattr(result, p, getattr(command, p) + self.dy)
-    for p in ("Z", "K"):
-      if getattr(command, p) is not None:
-        setattr(result, p, getattr(command, p) + self.dz)
+    if command.X is not None:
+      result.X = command.X + self.dx
+    if command.Y is not None:
+      result.Y = command.Y + self.dy
+    if command.Z is not None:
+      result.Z = command.Z + self.dz
     return result
 
 class Rotate(Filter):
@@ -47,15 +44,27 @@ class Rotate(Filter):
     """ Set the rotation angle
     """
     self.angle = radians(angle)
+    self.ox, self.oy = 0.0, 0.0
+    self.nx, self.ny = 0.0, 0.0
 
   def apply(self, command):
     result = command.clone()
+    # I, J are relative to current position so translate before rotating
+    if (command.I is not None) and (command.J is not None):
+      i = command.I + self.ox
+      j = command.J + self.oy
+      result.I = ((i * cos(self.angle)) - (j * sin(self.angle))) - self.nx
+      result.J = ((i * sin(self.angle)) + (j * cos(self.angle))) - self.ny
+    # Do the X, Y co-ordinates
     if (command.X is not None) and (command.Y is not None):
       result.X = (command.X * cos(self.angle)) - (command.Y * sin(self.angle))
       result.Y = (command.X * sin(self.angle)) + (command.Y * cos(self.angle))
-    if (command.I is not None) and (command.J is not None):
-      result.I = (command.I * cos(self.angle)) - (command.J * sin(self.angle))
-      result.J = (command.I * sin(self.angle)) + (command.J * cos(self.angle))
+    # Save position
+    self.nx = command.X or self.nx
+    self.ny = command.Y or self.ny
+    self.ox = command.X or self.ox
+    self.oy = command.Y or self.oy
+    # Done
     return result
 
 class Flip(Filter):
@@ -67,6 +76,8 @@ class Flip(Filter):
     """
     self.xflip = xflip
     self.yflip = yflip
+    self.ox, self.oy = 0.0, 0.0
+    self.nx, self.ny = 0.0, 0.0
 
   def apply(self, command):
     result = command.clone()
@@ -74,11 +85,31 @@ class Flip(Filter):
       if command.X is not None:
         result.X = self.xflip - (command.X - self.xflip)
       if command.I is not None:
-        result.I = self.xflip - (command.I - self.xflip)
+        # I is relative so translate first
+        i = command.I + self.ox
+        result.I = (self.xflip - (i - self.xflip)) - self.nx
+        # Arcs change direction in a flip
+        if command.command == "G02":
+          result.command = "G03"
+        elif command.command == "G03":
+          result.command = "G02"
     if self.yflip is not None:
       if command.Y is not None:
         result.Y = self.yflip - (command.Y - self.yflip)
       if command.J is not None:
-        result.J = self.yflip - (command.J - self.yflip)
+        # J is relative so translate first
+        j = command.J + self.oy
+        result.J = (self.yflip - (j - self.yflip)) - self.ny
+        # Arcs change direction in a flip
+        if command.command == "G02":
+          result.command = "G03"
+        elif command.command == "G03":
+          result.command = "G02"
+    # Save position
+    self.ox = command.X or self.ox
+    self.oy = command.Y or self.oy
+    self.nx = result.X or self.nx
+    self.ny = result.Y or self.ny
+    # All done
     return result
 
