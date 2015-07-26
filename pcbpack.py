@@ -176,7 +176,7 @@ class PCB:
     filename = findFile(path, "Board Outline_EDGEMILL_GCODE.ngc")
     if filename is None:
       raise Exception("Missing board outline for '%s'" % name)
-    self.outline = loadGCode(filename) # TODO: Should be boxed
+    self.outline = loadGCode(filename, BoxedLoader(start = GCommand("G04 P1"), end = GCommand("G00 X0 Y0"), inclusive = False))
     self.dx = -self.outline.minx
     self.dy = -self.outline.miny
     self.outline = self.outline.clone(Translate(self.dx, self.dy))
@@ -188,6 +188,11 @@ class PCB:
       raise Exception("Missing bottom copper for '%s'" % name)
     self.bottom = loadGCode(filename) # TODO: Should be boxed
     self.bottom = self.bottom.clone(Translate(self.dx, self.dy))
+
+  def _rotate(self, gcode):
+    """ Apply the rotation and translation needed for board layout
+    """
+    return gcode.clone(Rotate(-90.0), Translate(0.0, self.outline.maxx))
 
   def getBoard(self):
     """ Return a BoardPosition for this PCB
@@ -203,7 +208,15 @@ class PCB:
   def generateOutline(self, gcode, position):
     """ Generate the board outline gcode given the position
     """
-    pass
+    outline = self.outline
+    # Rotate if needed
+    if position.rotated:
+      outline = self._rotate(outline)
+    # Translate to the right spot
+    outline = outline.clone(Translate(position.x, position.y))
+    # Add to the full gcode
+    gcode.append("(INFO: %s @ %04.f, %0.4f rot = %s)" % (self.name, position.x, position.y, position.rotated))
+    gcode.append(outline)
 
   def generateDrills(self, drills, position):
     pass
@@ -419,16 +432,19 @@ if __name__ == "__main__":
       pcbs[board.name].generateOutline(outline, board)
       pcbs[board.name].generateDrills(drills, board)
   # Save all the main files
-  settings = getSettings(dict(), options)
+  settings = getSettings({ "safe": 5.0 }, options)
   for filename, gcode in (("_01_top.ngc", top), ("_02_bottom.ngc", bottom), ("_99_outline.ngc", outline)):
-    filename = options.output + filename
-    LOG.INFO("Generating %s" % filename)
-    saveGCode(filename, gcode, prefix = settings['prefix'], suffix = settings['suffix'])
+    if gcode.minx is not None:
+      filename = options.output + filename
+      LOG.INFO("Generating %s" % filename)
+      saveGCode(filename, gcode, prefix = settings['prefix'], suffix = settings['suffix'])
+      gcode.render(splitext(filename)[0] + ".png")
   # Save the drill files
   index = 3
   for diam in sorted(drills.keys()):
     filename = "%s_%02d_drill_%0.4f.ngc" % (options.output, index, float(diam))
     LOG.INFO("Generating %s" % filename)
     saveGCode(filename, drills[diam], prefix = settings['prefix'], suffix = settings['suffix'])
+    gcode.render(splitext(filename)[0] + ".png")
     index = index + 1
 
