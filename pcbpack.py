@@ -35,6 +35,10 @@ from PIL import Image, ImageDraw
 
 #--- Globals
 CONFIG = None
+CONTROL = {
+  "pcbcut": -2.0,
+  "safe": 3.0,
+  }
 
 #--- Template for OpenSCAM project
 OPENSCAM_XML = """
@@ -485,6 +489,7 @@ if __name__ == "__main__":
   parser.add_option("-n", "--no-optimise", action="store_false", default=True, dest="optimise")
   parser.add_option("-o", "--output", action="store", type="string", dest="output")
   parser.add_option("-p", "--panel", action="store", type="string", dest="panel")
+  parser.add_option("-c", "--cut", action="store", type="float", dest="pcbcut")
   options, args = parser.parse_args()
   # Check for required options
   for required in ("output", "panel"):
@@ -540,11 +545,11 @@ if __name__ == "__main__":
       pcbs[board.name].generateDrills(drills, board)
   # Save all the main files
   filenames = list()
-  settings = getSettings({ "safe": 5.0 }, options)
-  for filename, gcode in (("_01_top.ngc", top), ("_02_bottom.ngc", bottom), ("_99_outline.ngc", outline)):
+  settings = getSettings(CONTROL, options)
+  for filename, gcode in (("_01_top.ngc", top), ("_02_bottom.ngc", bottom), ("_99_outline.ngc", outline.clone(ZLevel(cut = settings['pcbcut'])))):
     if gcode.minx is not None:
-      # Correct arcs
-      gcode = gcode.clone(CorrectArc())
+      # Correct arcs and adjust safe height
+      gcode = gcode.clone(CorrectArc(), ZLevel(safe = settings['safe']))
       # Write the file
       filename = options.output + filename
       filenames.append(filename)
@@ -555,8 +560,8 @@ if __name__ == "__main__":
   # Save the drill files
   index = 3
   for diam in sorted(drills.keys()):
-    # Correct arcs
-    drills[diam] = drills[diam].clone(CorrectArc())
+    # Correct arcs and adjust safe/cutting depths
+    drills[diam] = drills[diam].clone(CorrectArc(), ZLevel(safe = settings['safe'], cut = settings['pcbcut']))
     # Write the file
     filename = "%s_%02d_drill_%0.1f.ngc" % (options.output, index, float(diam))
     filenames.append(filename)
