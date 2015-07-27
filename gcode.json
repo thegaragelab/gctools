@@ -20,6 +20,8 @@
     "safe": 3.0,
     # Cutting depth
     "cut": -1.0,
+    # Cutting depth (for PCBs)
+    "pcbcut": -2.0,
     # Feed rate for cutting operations
     "feed": 254
     }
