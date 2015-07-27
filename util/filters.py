@@ -113,3 +113,24 @@ class Flip(Filter):
     # All done
     return result
 
+class ZLevel(Filter):
+  """ Adjust Z levels for safe and cut depths
+  """
+
+  def __init__(self, cut = None, safe = None):
+    """ Set the depths to use
+    """
+    self.cut = cut
+    self.safe = safe
+
+  def apply(self, command):
+    if command.Z is None:
+      return command
+    command = command.clone()
+    if (command.Z < 0.0) and (self.cut is not None):
+      command.Z = self.cut
+    elif (command.Z > 0.0) and (self.safe is not None):
+      command.Z = self.safe
+    # All done
+    return command
+
