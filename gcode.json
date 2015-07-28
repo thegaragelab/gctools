@@ -11,8 +11,7 @@
     ],
   "suffix": [
     "(Suffix)",
-    "M05 (Stop spindle)",
-    "G00 X0 Y0",
+    "G00 X0 Y0 (Go home)",
     "M02 (Program End)"
     ],
   "defaults": {
