@@ -41,110 +41,74 @@ CONTROL = {
 def centerCut(gcode):
   """ Do a cut from the center outwards
   """
-  """
+  global control
+  width, height = CONTROL['width'], CONTROL['height']
+  tool, overlap = CONTROL['tool'], CONTROL['overlap']
+  cut, safe, feed = CONTROL['cut'], CONTROL['safe'], CONTROL['feed']
+  # Calculate dimensions
+  x1, y1 = tool / 2, tool / 2
+  x2, y2 = width - x1, height - y1
   # Start with a center line
-  center = options.width / 2
-  output.write("(Center line)\n")
-  output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, options.height - (options.toolsize / 2), MOVE_SPEED))
-  output.write("(Penetrate)\n")
-  output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
-  output.write("(Cut)\n")
-  output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (center, options.toolsize / 2, CUT_SPEED))
-  output.write("(Retract)\n")
-  output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
-  # Now do alternating cuts from the center line to each edge
-  left = options.toolsize / 2
-  right = options.width - (options.toolsize / 2)
-  top = options.height - (options.toolsize / 2)
-  current = options.toolsize / 2
-  while current < top:
-    # Do the left side
-    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, current, MOVE_SPEED))
-    output.write("(Penetrate)\n")
-    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
-    output.write("(Cut)\n")
-    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (left, current, CUT_SPEED))
-    output.write("(Retract)\n")
-    output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
-    # Do the right side
-    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, current, MOVE_SPEED))
-    output.write("(Penetrate)\n")
-    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
-    output.write("(Cut)\n")
-    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (right, current, CUT_SPEED))
-    output.write("(Retract)\n")
-    output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
-    # Move up
-    current = current + ((1 - OVERLAP) * options.toolsize)
-  # Do an additional pass for the final line if needed
-  if current != top:
-    current = top
-    # Do the left side
-    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, current, MOVE_SPEED))
-    output.write("(Penetrate)\n")
-    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
-    output.write("(Cut)\n")
-    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (left, current, CUT_SPEED))
-    output.write("(Retract)\n")
-    output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
-    # Do the right side
-    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (center, current, MOVE_SPEED))
-    output.write("(Penetrate)\n")
-    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
-    output.write("(Cut)\n")
-    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (right, current, CUT_SPEED))
-    output.write("(Retract)\n")
-    output.write("G00 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
-  """
-  pass
+  center = (x2 - x1) / 2
+  gcode.append("G00 X%0.4f Y%0.4f" % (center, y1))
+  gcode.append("G01 Z%0.4f F%0.4f" % (cut, feed))
+  gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (center, y2, feed))
+  # Do the right hand side first (+ve of center)
+  y = y2
+  delta = tool * (1.0 - (overlap / 100.0))
+  while delta > 0.0:
+    gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (x2, y, feed))
+    delta = min(y - y1, delta)
+    y = y - delta
+    gcode.append("G00 Z%0.4f" % safe)
+    gcode.append("G00 X%0.4f Y%0.4f" % (center, y))
+    gcode.append("G01 Z%0.4f F%0.4f" % (cut, feed))
+  gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (x2, y, feed))
+  gcode.append("G00 Z%0.4f" % safe)
+  # Move to the next position
+  gcode.append("G00 X%0.4f Y%0.4f" % (center, y1))
+  gcode.append("G00 Z%0.4f F%0.4f" % (cut, feed))
+  # Do the left hand side (-ve of center)
+  y = y1
+  delta = tool * (1.0 - (overlap / 100.0))
+  while delta > 0.0:
+    gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (x1, y, feed))
+    delta = min(y2 - y, delta)
+    y = y + delta
+    gcode.append("G00 Z%0.4f" % safe)
+    gcode.append("G00 X%0.4f Y%0.4f" % (center, y))
+    gcode.append("G01 Z%0.4f F%0.4f" % (cut, feed))
+  gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (x1, y, feed))
+  gcode.append("G00 Z%0.4f" % safe)
 
 def areaCut(gcode):
   """ Do an area cut from outside to center
   """
-  """
-  width = options.width
-  height = options.height
-  x1 = options.toolsize / 2
-  y1 = options.toolsize / 2
-  x2 = options.width - (options.toolsize / 2)
-  y2 = options.height - (options.toolsize / 2)
-  delta = (1 - OVERLAP) * options.toolsize
-  while (width >= options.toolsize) and (height >= options.toolsize):
-    # Do the circuit
-    output.write("(Penetrate)\n")
-    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (x1, y1, MOVE_SPEED))
-    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
-    output.write("(Cut)\n")
-    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (x2, y1, CUT_SPEED))
-    output.write("G01 X%0.4f Y%0.4f\n" % (x2, y2))
-    output.write("G01 X%0.4f Y%0.4f\n" % (x1, y2))
-    output.write("G01 X%0.4f Y%0.4f\n" % (x1, y1))
-    output.write("G01 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
-    # Calculate the next position
-    width = width - (2 * delta)
-    height = height - (2 * delta)
+  global CONTROL
+  width, height = CONTROL['width'], CONTROL['height']
+  tool, overlap = CONTROL['tool'], CONTROL['overlap']
+  cut, safe, feed = CONTROL['cut'], CONTROL['safe'], CONTROL['feed']
+  # Calculate starting point
+  x1, y1 = tool / 2, tool / 2
+  x2, y2 = width - x1, height - y1
+  delta = tool * (1.0 - (overlap / 100.0))
+  # Do the insertion
+  gcode.append("G00 X%0.4f Y%0.4f" % (x1, y1))
+  gcode.append("G01 Z%0.4f F%0.4f" % (cut, feed))
+  while delta > 0.0:
+    gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (x2, y1, feed))
+    gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (x2, y2, feed))
+    gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (x1, y2, feed))
+    gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (x1, y1 + delta, feed))
+    # Update the delta
+    delta = min(y2 - y1, x2 - x1, delta)
+    # Update the target points
     x1 = x1 + delta
-    x2 = x2 - delta
     y1 = y1 + delta
+    x2 = x2 - delta
     y2 = y2 - delta
-  # Handle the left over
-  if (width > 0) and (height > 0):
-    if width < options.toolsize:
-      # Vertical cut to finish
-      x1 = options.width / 2
-      x2 = options.width / 2
-    else:
-      # Horizontal cut to finish
-      y1 = options.height / 2
-      y2 = options.height / 2
-    output.write("(Penetrate)\n")
-    output.write("G00 X%0.4f Y%0.4f F%0.4f\n" % (x1, y1, MOVE_SPEED))
-    output.write("G01 Z%0.4f F%0.4f\n" % (options.cut_depth, INSERT_SPEED))
-    output.write("(Cut)\n")
-    output.write("G01 X%0.4f Y%0.4f F%0.4f\n" % (x2, y2, CUT_SPEED))
-    output.write("G01 Z%0.4f F%0.4f\n" % (options.safe_depth, MOVE_SPEED))
-  """
-  pass
+  # Move to safe point
+  gcode.append("G00 Z%0.4f" % safe)
 
 #--- Main program
 if __name__ == "__main__":
@@ -196,5 +160,5 @@ if __name__ == "__main__":
   # Save the image (if requested)
   if options.image:
     filename = name + ".png"
-    gcode.render(filename, showAll = True)
+    gcode.render(filename, showall = True)
     print "Generated image '%s'" % filename
