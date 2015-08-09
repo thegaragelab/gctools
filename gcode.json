@@ -12,7 +12,8 @@
   "suffix": [
     "(Suffix)",
     "G00 X0 Y0 (Go home)",
-    "M02 (Program End)"
+    "M02 (Program End)",
+    "%"
     ],
   "defaults": {
     # Safe height for rapid movements
