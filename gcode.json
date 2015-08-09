@@ -13,7 +13,8 @@
     "(Suffix)",
     "M05 (Stop spindle)",
     "G00 X0 Y0",
-    "M02 (Program End)"
+    "M02 (Program End)",
+    "%"
     ],
   "defaults": {
     # Safe height for rapid movements
