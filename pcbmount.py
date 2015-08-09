@@ -7,34 +7,45 @@
 #----------------------------------------------------------------------------
 from optparse import OptionParser
 from string import Template
+from util import GCode, saveGCode, getSettings
 
 # Hole positions
 XPOS = [ 3.5, 146.5 ]
 YPOS = [ 3.5, 71.5 ]
 YPOS_LARGE = [ 146.5 ]
 
+# Defaults
+CONTROL = {
+  "cut": -2.0,
+  "safe": 3.0,
+  "feed": 128,
+  }
+
 if __name__ == "__main__":
   # Set up program options
   parser = OptionParser()
-  parser.add_option("-s", "--safe", action="store", type="float", default=3, dest="safe_height")
-  parser.add_option("-f", "--feed", action="store", type="float", default=250, dest="feed_rate")
-  parser.add_option("-l", "--large", action="store_true", default=False, dest="large_panel")
+  parser.add_option("-s", "--safe", action="store", type="float", default=3, dest="safe")
+  parser.add_option("-c", "--cut", action="store", type="float", default=-3, dest="cut")
+  parser.add_option("-f", "--feed", action="store", type="float", default=250, dest="feed")
+  parser.add_option("-l", "--large", action="store_true", default=False, dest="large")
   options, args = parser.parse_args()
   # Make sure we have an output file
   if len(args) != 1:
     print "Output file required."
     exit(1)
+  # Get settings
+  CONTROL = getSettings(CONTROL, options)
   # Set up the points to use
-  if options.large_panel:
-    YPOS.append(YPOS_LARGE)
+  if options.large:
+    YPOS.extend(YPOS_LARGE)
   # Generate the gcode
-  values = {
-    'safe_height': options.safe_height,
-    'feed_rate': options.feed_rate,
-    }
-  with open(args[0], "w") as gcode:
-    gcode.write(Template(GCODE_PREFIX).safe_substitute(values))
-    # Generate drill commands
-
-    gcode.write(Template(GCODE_SUFFIX).safe_substitute(values))
+  gcode = GCode()
+  # Generate drill commands
+  for y in sorted(YPOS):
+    for x in sorted(XPOS):
+      gcode.append("G00 X%0.4f Y%0.4f" % (x, y))
+      gcode.append("G01 Z%0.4f F%0.4f" % (CONTROL['cut'], CONTROL['feed']))
+      gcode.append("G00 Z%0.4f" % CONTROL['safe'])
+  # Write the output file
+  saveGCode(args[0], gcode, prefix = CONTROL['prefix'], suffix = CONTROL['suffix'])
 
