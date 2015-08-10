@@ -545,10 +545,15 @@ if __name__ == "__main__":
       pcbs[board.name].generateDrills(drills, board)
   # Generate optimised copies if requested
   if options.optimise:
+    LOG.INFO("Optimising ...")
+    LOG.INFO("  Top copper")
     top = optimise(top)
+    LOG.INFO("  Bottom copper")
     bottom = optimise(bottom)
+    LOG.INFO("  Board outline")
     outline = optimise(outline)
     for diam in drills.keys():
+      LOG.INFO("  Drill (%0.1fmm)" % diam)
       drills[diam] = optimise(drills[diam])
   # Save all the main files
   filenames = list()
