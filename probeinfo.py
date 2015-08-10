@@ -9,9 +9,7 @@ from optparse import OptionParser
 from os.path import splitext
 from util import defaultExtension
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-from scipy.interpolate import griddata
 
 #--- Usage information
 USAGE = """
@@ -71,7 +69,7 @@ class ProbeFile:
     else:
       self.median = (self.zlevels[index - 1] + self.zlevels[index]) / 2.0
 
-  def generateMap(self, filename):
+  def generateImage(self, filename):
     """ Generate a heatmap of the probe
     """
     data = list()
@@ -85,27 +83,6 @@ class ProbeFile:
     plt.subplot(1, 1, 1, xticks = [], yticks = [])
     plt.imshow(my_data, cmap = 'copper')
     plt.colorbar()
-    fig.set_size_inches((16, 8))
-    plt.savefig(filename, dpi = 100)
-
-  def generateImage(self, filename):
-    """ Generate a 3D plot of the probe
-    """
-    fig = plt.figure(figsize=plt.figaspect(0.5))
-    ax = fig.add_subplot(1, 1, 1, projection='3d')
-    # note this: you can skip rows!
-    my_data = np.array(self.points)
-    X = my_data[:,0]
-    Y = my_data[:,1]
-    Z = my_data[:,2]
-    xi = np.linspace(X.min(),X.max(),100)
-    yi = np.linspace(Y.min(),Y.max(),100)
-    # VERY IMPORTANT, to tell matplotlib how is your data organized
-    zi = griddata((X, Y), Z, (xi[None,:], yi[:,None]), method='cubic')
-#    CS = plt.contour(xi,yi,zi,15,linewidths=0.5,color='k')
-#    ax = fig.add_subplot(1, 2, 2, projection='3d')
-    xig, yig = np.meshgrid(xi, yi)
-    surf = ax.plot_wireframe(xig, yig, zi, rstride = 10, cstride = 10)
     fig.set_size_inches((16, 8))
     plt.savefig(filename, dpi = 100)
 
@@ -130,7 +107,7 @@ if __name__ == "__main__":
   print "  Diff: %0.4f, Avg: %0.4f, Med: %0.4f" % (max(probe.zlevels) - min(probe.zlevels), probe.average, probe.median)
   # Generate a plot if requested
   if options.image:
-    probe.generateMap(defaultExtension(args[0], ".png", True))
+    probe.generateImage(defaultExtension(args[0], ".png", True))
 
 
 
