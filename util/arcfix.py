@@ -11,7 +11,7 @@
 # to repair that. Original: https://github.com/blinkenlight/LineBender
 #----------------------------------------------------------------------------
 from gcode import Filter
-from math import sqrt, atan, sin, cos
+from math import sqrt, atan, sin, cos, radians
 
 #----------------------------------------------------------------------------
 # Calculations

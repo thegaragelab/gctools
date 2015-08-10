@@ -116,6 +116,9 @@ def loadDrillFile(filename):
       # Look for tool definitions (eg "T1C00.039")
       if line.startswith("T"):
         tools[line[1]] = round(25.4 * float(line[3:]), 1)
+        # Merge any bit <= 1.2mm into a single 1mm group
+        if tools[line[1]] <= 1.2:
+          tools[line[1]] = 1.0
       elif line.startswith("%"):
         header = False
     else:
@@ -258,7 +261,7 @@ class PCB:
         gcd.append("G00 Z3") # TODO: Safe height should be a parameter or a config
         for x, y in drills[diam]:
           gcd.append("G00 X%0.4f Y%0.4f" % (x, y))
-          gcd.append("G01 Z-2 F127") # TODO: Drill depth and feed rate should be a parameter or a config
+          gcd.append("G01 Z-2.5 F127") # TODO: Drill depth and feed rate should be a parameter or a config
           gcd.append("G00 Z3")
         # Adjust to match the rest of the files
         self.drills[diam] = gcd.clone(Flip(xflip = self.midpoint), Translate(self.dx, self.dy))
@@ -274,6 +277,22 @@ class PCB:
       raise Exception("Missing bottom copper for '%s'" % name)
     self.bottom = loadGCode(filename, BoxedLoader(start = GCommand("G04 P1"), end = GCommand("G00 X0 Y0"), inclusive = False))
     self.bottom = self.bottom.clone(Flip(xflip = self.midpoint), Translate(self.dx, self.dy))
+    # Generate an outline as well (to avoid tearing)
+    x1, y1 = self.dx, self.dy
+    x2 = (self.outline.maxx - self.outline.minx) - x1
+    y2 = (self.outline.maxy - self.outline.miny) - y1
+    safe, cut = self.bottom.maxz, self.bottom.minz
+    feed, insert = 250.0, 500.0 # TODO: Should be extracted from file
+    outline = GCode()
+    outline.append("G0 Z%0.4f" % safe)
+    outline.append("G0 X%0.4f Y%0.4f" % (x1, y1))
+    outline.append("G1 Z%0.4f F%0.4f" % (cut, insert))
+    for point in ((x2, y1), (x2, y2), (x1, y2), (x1, y1)):
+      outline.append("G1 X%0.4f Y%0.4f F%0.4f" % (point[0], point[1], feed))
+    outline.append("G0 Z%0.4f" % safe)
+    # Merge it with the bottom copper
+    outline.append(self.bottom)
+    self.bottom = outline
 
   def _rotate(self, gcode):
     """ Apply the rotation and translation needed for board layout
