@@ -71,6 +71,23 @@ class ProbeFile:
     else:
       self.median = (self.zlevels[index - 1] + self.zlevels[index]) / 2.0
 
+  def generateMap(self, filename):
+    """ Generate a heatmap of the probe
+    """
+    data = list()
+    for y in sorted(self.yvals, reverse = True):
+      line = list()
+      for x in self.xvals:
+        line.append(self.pdict[x][y] - self.median)
+      data.append(line)
+    my_data = np.array(data)
+    fig = plt.figure(figsize=plt.figaspect(0.5))
+    plt.subplot(1, 1, 1, xticks = [], yticks = [])
+    plt.imshow(my_data, cmap = 'copper')
+    plt.colorbar()
+    fig.set_size_inches((16, 8))
+    plt.savefig(filename, dpi = 100)
+
   def generateImage(self, filename):
     """ Generate a 3D plot of the probe
     """
@@ -88,7 +105,7 @@ class ProbeFile:
 #    CS = plt.contour(xi,yi,zi,15,linewidths=0.5,color='k')
 #    ax = fig.add_subplot(1, 2, 2, projection='3d')
     xig, yig = np.meshgrid(xi, yi)
-    surf = ax.plot_surface(xig, yig, zi, linewidth=0)
+    surf = ax.plot_wireframe(xig, yig, zi, rstride = 10, cstride = 10)
     fig.set_size_inches((16, 8))
     plt.savefig(filename, dpi = 100)
 
@@ -113,7 +130,7 @@ if __name__ == "__main__":
   print "  Diff: %0.4f, Avg: %0.4f, Med: %0.4f" % (max(probe.zlevels) - min(probe.zlevels), probe.average, probe.median)
   # Generate a plot if requested
   if options.image:
-    probe.generateImage(defaultExtension(args[0], ".png", True))
+    probe.generateMap(defaultExtension(args[0], ".png", True))
 
 
 
