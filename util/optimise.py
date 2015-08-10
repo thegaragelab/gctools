@@ -37,6 +37,15 @@ class Line(Point):
     self.tx = tx
     self.ty = ty
 
+  def distanceFrom(self, x, y):
+    d1 = distance(self.x, self.y, x, y)
+    d2 = distance(self.tx, self.ty, x, y)
+    if d2 < d1:
+      self.tx, self.x = self.x, self.tx
+      self.ty, self.y = self.y, self.ty
+      return d2
+    return d1
+    
   def generate(self, gcode, feed):
     gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (self.tx, self.ty, feed))
     return self.tx, self.ty
@@ -51,6 +60,9 @@ class Arc(Line):
     self.cy = cy
     self.cmd = cmd
 
+  def distanceFrom(self, x, y):
+    return distance(self.x, self.y, x, y)
+    
   def generate(self, gcode, feed):
     gcode.append("%s X%0.4f Y%0.4f I%0.4f J%0.4f F%0.4f" % (self.cmd, self.tx, self.ty, self.cx, self.cy, feed))
     return self.tx, self.ty
