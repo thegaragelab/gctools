@@ -6,6 +6,7 @@
 #----------------------------------------------------------------------------
 import re
 from PIL import Image, ImageDraw
+from math import degrees, atan2, sqrt
 
 # Set up the regular expression for processing G-Code
 REGCODE = re.compile("(([A-Z])((-?[0-9]+)\.?([0-9]+)?))|(\(.*\))")
@@ -274,12 +275,32 @@ class GCode(Loader):
             dx + (pixelsPerMM * nx),
             dy + (pixelsPerMM * ny)
             )
-          if z < 0.0:
-            # Cutting movement
-            drw.line(path, fill = "blue", width = 1)
-          elif showall:
-            # Positioning
-            drw.line(path, fill = "red", width = 1)
+          if cmd.command in ("G00", "G01"):
+            if z < 0.0:
+              # Cutting movement
+              drw.line(path, fill = "blue", width = 1)
+            elif showall:
+              # Positioning
+              drw.line(path, fill = "red", width = 1)
+          elif z < 0.0:
+            # Draw an arc
+            cx, cy = x + cmd.I, y + cmd.J
+            r = sqrt(cmd.I ** 2 + cmd.J ** 2)
+            a1 = int(degrees(atan2(x - cx, y - cy)) + 360.0) % 360
+            a2 = int(degrees(atan2(nx - cx, ny - cy)) + 360.0) % 360
+            path = (
+              dx + (pixelsPerMM * (cx - r)),
+              dy + (pixelsPerMM * (cy - r)),
+              dx + (pixelsPerMM * (cx + r)),
+              dy + (pixelsPerMM * (cy + r))
+              )
+            print "ARC: S %0.4f, %0.4f E %0.4f, %0.4f C %0.4f, %0.4f, a1 = %d, a2 = %d" % (x, y, nx, ny, cx, cy, a1, a2)
+            if cmd.command == "G03":
+              # Clockwise
+              drw.arc(path, a2, a1)
+            else:
+              # Anticlockwise
+              drw.arc(path, a2, a1)
         # Check for touchdowns (or drill commands)
         nz = cmd.Z or z
         if (nz < 0.0) and (z > 0):
