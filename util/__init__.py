@@ -11,4 +11,5 @@ from filters import SwapXY, Translate, Rotate, Flip, ZLevel
 from arcfix import CorrectArc
 from loaders import BoxedLoader
 from options import getSettings
+from filename import defaultExtension
 
