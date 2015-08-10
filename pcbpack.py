@@ -543,6 +543,13 @@ if __name__ == "__main__":
       pcbs[board.name].generateBottomCopper(bottom, board)
       pcbs[board.name].generateOutline(outline, board)
       pcbs[board.name].generateDrills(drills, board)
+  # Generate optimised copies if requested
+  if options.optimise:
+    top = optimise(top)
+    bottom = optimise(bottom)
+    outline = optimise(outline)
+    for diam in drills.keys():
+      drills[diam] = optimise(drills[diam])
   # Save all the main files
   filenames = list()
   settings = getSettings(CONTROL, options)
