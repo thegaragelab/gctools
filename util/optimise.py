@@ -54,14 +54,24 @@ class Arc(Line):
   """ Represents an arc
   """
   
-  def __init__(self, x, y, tx, ty, cx, cy, cmd):
+  def __init__(self, x, y, tx, ty, i, j, cmd):
     Line.__init__(self, x, y, tx, ty)
-    self.cx = cx
-    self.cy = cy
+    self.cx = x + i
+    self.cy = y + j
     self.cmd = cmd
 
   def distanceFrom(self, x, y):
-    return distance(self.x, self.y, x, y)
+    d1 = distance(self.x, self.y, x, y)
+    d2 = distance(self.tx, self.ty, x, y)
+    if d2 < d1:
+      self.tx, self.x = self.x, self.tx
+      self.ty, self.y = self.y, self.ty
+      if self.cmd == "G02":
+        self.cmd = "G03"
+      else:
+        self.cmd = "G02"
+      return d2
+    return d1
     
   def generate(self, gcode, feed):
     gcode.append("%s X%0.4f Y%0.4f I%0.4f J%0.4f F%0.4f" % (self.cmd, self.tx, self.ty, self.cx, self.cy, feed))
