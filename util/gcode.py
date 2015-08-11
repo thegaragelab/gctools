@@ -6,7 +6,7 @@
 #----------------------------------------------------------------------------
 import re
 from PIL import Image, ImageDraw
-from math import degrees, atan2, sqrt
+from math import degrees, atan2, sqrt, sin, cos, radians
 
 # Set up the regular expression for processing G-Code
 REGCODE = re.compile("(([A-Z])((-?[0-9]+)\.?([0-9]+)?))|(\(.*\))")
@@ -245,6 +245,26 @@ class GCode(Loader):
     # All done
     return result
 
+  def _arc(self, drw, center, radius, a1, a2, fill):
+    bbox = (
+      center[0] - radius,
+      center[1] - radius,
+      center[0] + radius,
+      center[1] + radius
+      )
+    drw.arc(bbox, a1, a2, fill = fill)
+#    length = int((6.18 * 4) * (abs(a1 - a2) / 360.0))
+#    if length <= 0:
+#      return
+#    step = (a2 - a1) / length
+#    # Calculate the points to plot
+#    points = zip(
+#      [ center[0] + int(cos(radians(d)) * radius) for d in range(a1, a2, step) ],
+#      [ center[1] + int(sin(radians(d)) * radius) for d in range(a1, a2, step) ]
+#      )
+#    print center, a1, a2
+#    drw.line(points, fill = fill)
+
   def render(self, filename, cutdepth = 0.0, showall = False):
     """ Render the gcode to an image file for visualisation
     """
@@ -286,21 +306,14 @@ class GCode(Loader):
             # Draw an arc
             cx, cy = x + cmd.I, y + cmd.J
             r = sqrt(cmd.I ** 2 + cmd.J ** 2)
-            a1 = int(degrees(atan2(x - cx, y - cy)) + 360.0) % 360
-            a2 = int(degrees(atan2(nx - cx, ny - cy)) + 360.0) % 360
-            path = (
-              dx + (pixelsPerMM * (cx - r)),
-              dy + (pixelsPerMM * (cy - r)),
-              dx + (pixelsPerMM * (cx + r)),
-              dy + (pixelsPerMM * (cy + r))
-              )
-            print "ARC: S %0.4f, %0.4f E %0.4f, %0.4f C %0.4f, %0.4f, a1 = %d, a2 = %d" % (x, y, nx, ny, cx, cy, a1, a2)
-            if cmd.command == "G03":
+            a1 = int(degrees(atan2(y - cy, x - cx)))
+            a2 = int(degrees(atan2(ny - cy, nx - cx)))
+            if cmd.command == "G02":
               # Clockwise
-              drw.arc(path, a2, a1)
+              self._arc(drw, (int(dx + (pixelsPerMM * cx)), int(dy + (pixelsPerMM * cy))), int(r * pixelsPerMM), a2, a1, fill = "blue")
             else:
               # Anticlockwise
-              drw.arc(path, a2, a1)
+              self._arc(drw, (int(dx + (pixelsPerMM * cx)), int(dy + (pixelsPerMM * cy))), int(r * pixelsPerMM), a1, a2, fill = "green")
         # Check for touchdowns (or drill commands)
         nz = cmd.Z or z
         if (nz < 0.0) and (z > 0):
