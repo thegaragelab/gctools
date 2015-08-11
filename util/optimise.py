@@ -13,25 +13,25 @@ def distance(x1, y1, x2, y2):
   """ Calculate the distance between two points
   """
   return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-  
+
 class Point:
   """ Represent a single point
   """
-  
+
   def __init__(self, x, y):
     self.x = x
     self.y = y
-    
+
   def distanceFrom(self, x, y):
     return distance(self.x, self.y, x, y)
-    
+
   def generate(self, gcode, feed):
     return self.x, self.y
-    
+
 class Line(Point):
   """ Represents a line
   """
-  
+
   def __init__(self, x, y, tx, ty):
     Point.__init__(self, x, y)
     self.tx = tx
@@ -45,7 +45,7 @@ class Line(Point):
       self.ty, self.y = self.y, self.ty
       return d2
     return d1
-    
+
   def generate(self, gcode, feed):
     gcode.append("G01 X%0.4f Y%0.4f F%0.4f" % (self.tx, self.ty, feed))
     return self.tx, self.ty
@@ -53,7 +53,7 @@ class Line(Point):
 class Arc(Line):
   """ Represents an arc
   """
-  
+
   def __init__(self, x, y, tx, ty, i, j, cmd):
     Line.__init__(self, x, y, tx, ty)
     self.cx = x + i
@@ -72,9 +72,9 @@ class Arc(Line):
         self.cmd = "G02"
       return d2
     return d1
-    
+
   def generate(self, gcode, feed):
-    gcode.append("%s X%0.4f Y%0.4f I%0.4f J%0.4f F%0.4f" % (self.cmd, self.tx, self.ty, self.cx, self.cy, feed))
+    gcode.append("%s X%0.4f Y%0.4f I%0.4f J%0.4f F%0.4f" % (self.cmd, self.tx, self.ty, self.cx - self.x, self.cy - self.y, feed))
     return self.tx, self.ty
 
 def optimise(source):
