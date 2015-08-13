@@ -60,10 +60,10 @@ class Rotate(Filter):
       result.X = (command.X * cos(self.angle)) - (command.Y * sin(self.angle))
       result.Y = (command.X * sin(self.angle)) + (command.Y * cos(self.angle))
     # Save position
-    self.nx = command.X or self.nx
-    self.ny = command.Y or self.ny
     self.ox = command.X or self.ox
     self.oy = command.Y or self.oy
+    self.nx = (self.ox * cos(self.angle)) - (self.oy * sin(self.angle))
+    self.ny = (self.ox * sin(self.angle)) + (self.oy * cos(self.angle))
     # Done
     return result
 
