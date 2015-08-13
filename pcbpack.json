@@ -4,7 +4,7 @@
   "boards": "boards",
   # Panel definitions
   "panels": {
-    "small": {
+    "small_full": {
       "description": "Single sided, screw lock",
       "width": 150,
       "height": 75,
@@ -16,10 +16,15 @@
         { "x": 140, "y": 65, "w": 10, "h": 10 }
         ]
       },
-    "small2": {
+    "small": {
       "description": "Single sided, avoid screws",
       "width": 130,
       "height": 65
+      },
+    "large": {
+      "description": "Single sided, large, avoid screws",
+      "width": 130,
+      "height": 140
       }
     }
 }
