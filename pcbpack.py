@@ -278,9 +278,9 @@ class PCB:
     self.bottom = loadGCode(filename, BoxedLoader(start = GCommand("G04 P1"), end = GCommand("G00 X0 Y0"), inclusive = False))
     self.bottom = self.bottom.clone(Flip(xflip = self.midpoint), Translate(self.dx, self.dy))
     # Generate an outline as well (to avoid tearing)
-    x1, y1 = self.dx, self.dy
-    x2 = (self.outline.maxx - self.outline.minx) - x1
-    y2 = (self.outline.maxy - self.outline.miny) - y1
+    delta = max(self.dx, self.dy)
+    x1, y1 = self.outline.minx + delta, self.outline.miny + delta
+    x2, y2 = self.outline.maxx - delta, self.outline.maxy - delta
     safe, cut = self.bottom.maxz, self.bottom.minz
     feed, insert = 250.0, 500.0 # TODO: Should be extracted from file
     outline = GCode()
