@@ -29,7 +29,7 @@ from util import *
 from string import Template
 from random import randint
 from os import listdir
-from os.path import realpath, splitext, exists, join
+from os.path import realpath, splitext, exists, join, basename
 from optparse import OptionParser
 from PIL import Image, ImageDraw
 
@@ -606,6 +606,6 @@ if __name__ == "__main__":
     output.write(Template(OPENSCAM_XML).safe_substitute({
       "panel_width": str(panel.w),
       "panel_height": str(panel.h),
-      "filenames": " ".join(filenames)
+      "filenames": " ".join([ basename(f) for f in filenames ])
       }))
 
