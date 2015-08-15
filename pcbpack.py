@@ -261,7 +261,7 @@ class PCB:
         gcd.append("G00 Z3") # TODO: Safe height should be a parameter or a config
         for x, y in drills[diam]:
           gcd.append("G00 X%0.4f Y%0.4f" % (x, y))
-          gcd.append("G01 Z-2.5 F127") # TODO: Drill depth and feed rate should be a parameter or a config
+          gcd.append("G01 Z-3 F127") # TODO: Drill depth and feed rate should be a parameter or a config
           gcd.append("G00 Z3")
         # Adjust to match the rest of the files
         self.drills[diam] = gcd.clone(Flip(xflip = self.midpoint), Translate(self.dx, self.dy))
