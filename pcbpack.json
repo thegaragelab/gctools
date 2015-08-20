@@ -18,13 +18,13 @@
       },
     "small": {
       "description": "Single sided, avoid screws",
-      "width": 130,
-      "height": 65
+      "width": 135,
+      "height": 70
       },
     "large": {
       "description": "Single sided, large, avoid screws",
-      "width": 130,
-      "height": 140
+      "width": 135,
+      "height": 145
       }
     }
 }
