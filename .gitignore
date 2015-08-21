@@ -3,6 +3,7 @@
 *.pyc
 *.ngc
 *.png
+swg*
 log
 boards
 scratch
