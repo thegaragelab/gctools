@@ -276,6 +276,13 @@ class PCB:
     if filename is None:
       raise Exception("Missing bottom copper for '%s'" % name)
     self.bottom = loadGCode(filename, BoxedLoader(start = GCommand("G04 P1"), end = GCommand("G00 X0 Y0"), inclusive = False))
+    # Add outlines for the drill holes (avoid tearing)
+    global options
+    if options.pads:
+      if drills is not None:
+        for diam in drills.keys():
+          for x, y in drills[diam]:
+            self.bottom.circle(x, y, (diam - 0.254) / 2, self.bottom.minz, self.bottom.maxz, step = 0.254)
     self.bottom = self.bottom.clone(Flip(xflip = self.midpoint), Translate(self.dx, self.dy))
     # Generate an outline as well (to avoid tearing)
     delta = abs(max(self.dx, self.dy))
@@ -509,6 +516,7 @@ if __name__ == "__main__":
   parser.add_option("-o", "--output", action="store", type="string", dest="output")
   parser.add_option("-p", "--panel", action="store", type="string", dest="panel")
   parser.add_option("-c", "--cut", action="store", type="float", dest="pcbcut")
+  parser.add_option("-s", "--no-pads", action="store_false", default=True, dest="pads")
   options, args = parser.parse_args()
   # Check for required options
   for required in ("output", "panel"):
@@ -522,7 +530,7 @@ if __name__ == "__main__":
   try:
     panel = Panel(options.panel)
   except Exception, ex:
-    LOG.FATAL("Could not load panel defintion '%s'" % options.panel)
+    LOG.FATAL("Could not load panel definition '%s'" % options.panel)
   LOG.DEBUG("Panel - %s" % panel)
   # Load boards
   pcbs = dict()
