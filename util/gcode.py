@@ -6,7 +6,7 @@
 #----------------------------------------------------------------------------
 import re
 from PIL import Image, ImageDraw
-from math import degrees, atan2, sqrt, sin, cos, radians
+from math import degrees, atan2, sqrt, sin, cos, radians, pi
 
 # Set up the regular expression for processing G-Code
 REGCODE = re.compile("(([A-Z])((-?[0-9]+)\.?([0-9]+)?))|(\(.*\))")
@@ -315,6 +315,34 @@ class GCode(Loader):
     # Save the image
     img = img.transpose(Image.FLIP_TOP_BOTTOM)
     img.save(filename)
+
+  def circle(self, x, y, radius, cut, safe, feed = 254.0, penetrate = 127.0, step = 1.0):
+    """ Add commands to cut a circle as a sequence of straight lines
+
+      I have had issues with getting consistant interpretation of arc (G02/G03)
+      commands so this function is a work around.
+    """
+    self.append("(begin circle - x: %0.4f, y: %0.4f, r: %0.4f)" % (x, y, radius))
+    # Determine the maximum step size (diameter / 16)
+    diam = 2.0 * pi * radius
+    step = min(step, diam / 16.0)
+    angle = (2 * pi) / (diam / step)
+    # Move to the starting point and penetrate
+    self.append("G0 Z%0.4f" % safe)
+    self.append("G0 X%0.4f Y%0.4f" % (x + radius, y))
+    self.append("G1 Z%0.4f F%0.4f" % (cut, penetrate))
+    cx, cy, a = x + radius, y, 0.0
+    while a < (2 * pi):
+      cx = x + (radius * cos(a))
+      cy = y + (radius * sin(a))
+      self.append("G1 X%0.4f Y%0.4f F%0.4f" % (cx, cy, feed))
+      a = a + angle
+    # Add a last cut to the end point
+    if (cx <> (x + radius)) or (cy <> y):
+      self.append("G1 X%0.4f Y%0.4f F%0.4f" % (x + radius, y, feed))
+    # retract and we are done
+    self.append("G0 Z%0.4f" % safe)
+    self.append("(end circle)")
 
   def __str__(self):
     def floatStr(val):
