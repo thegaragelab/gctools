@@ -25,6 +25,7 @@
 #
 # Tool to pack multiple PCB g-code files into a single panel.
 #----------------------------------------------------------------------------
+import re
 from util import *
 from string import Template
 from random import randint
@@ -111,11 +112,17 @@ def loadDrillFile(filename):
   current = None
   tools = dict()
   results = dict()
+  divisor = None
+  regex = re.compile("X([0-9]*)Y([0-9]*)")
   for line in open(filename, "r"):
+    line = line.strip()
     if header:
       # Look for tool definitions (eg "T1C00.039")
       if line.startswith("T"):
         tools[line[1]] = round(25.4 * float(line[3:]), 1)
+        # Figure out the divisor
+        if divisor is None:
+          divisor = 10.0 ** len(line[3:].split(".")[1])
         # Merge any bit <= 1.2mm into a single 1mm group
         if tools[line[1]] <= 1.2:
           tools[line[1]] = 1.0
@@ -130,9 +137,11 @@ def loadDrillFile(filename):
       elif line.startswith("X"):
         # Position
         if current is not None:
-          x = 25.4 * (int(line[1:6], 10) / 1000.0)
-          y = 25.4 * (int(line[7:], 10) / 1000.0)
-          results[current].append((x, y))
+          parts = regex.match(line).groups()
+          if len(parts) == 2:
+            x = 25.4 * (int(parts[0], 10) / divisor)
+            y = 25.4 * (int(parts[1], 10) / divisor)
+            results[current].append((x, y))
   return results
 
 #----------------------------------------------------------------------------
