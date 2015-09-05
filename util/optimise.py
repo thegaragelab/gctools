@@ -77,6 +77,28 @@ class Arc(Line):
     gcode.append("%s X%0.4f Y%0.4f I%0.4f J%0.4f F%0.4f" % (self.cmd, self.tx, self.ty, self.cx - self.x, self.cy - self.y, feed))
     return self.tx, self.ty
 
+def getClosest(candidates, x, y):
+  """ Do a straight linear search for the closest element
+  """
+  best_distance = None
+  best_item = None
+  best_index = None
+  index = 0
+  for item in candidates:
+    distance = item.distanceFrom(x, y)
+    if distance == 0:
+      del candidates[index]
+      return candidates, item
+    # Is this the new best?
+    if (best_item is None) or (distance < best_distance):
+      best_item = item
+      best_distance = distance
+      best_index = index
+    index = index + 1
+  # Return the best result
+  del candidates[best_index]
+  return candidates, best_item
+
 def optimise(source):
   """ Return an optimised copy of the given gcode
   """
@@ -133,11 +155,10 @@ def optimise(source):
   x, y, nair = 0.0, 0.0, 0.0
   first = True
   optimised = GCode()
+  movements.sort(cmp = lambda a, b: cmp(a.distanceFrom(x, y), b.distanceFrom(x, y)))
   while len(movements) > 0:
     # Sort by distance to current point
-    movements.sort(cmp = lambda a, b: cmp(a.distanceFrom(x, y), b.distanceFrom(x, y)))
-    current = movements[0]
-    movements = movements[1:]
+    movements, current = getClosest(movements, x, y)
     # Do we need to do a retraction and insertion ?
     if first or (x <> current.x) or (y <> current.y):
       if not first:
