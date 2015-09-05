@@ -21,7 +21,7 @@
     # Cutting depth
     "cut": -1.0,
     # Cutting depth (for PCBs)
-    "pcbcut": -2.0,
+    "pcbcut": -2.5,
     # Feed rate for cutting operations
     "feed": 254
     }

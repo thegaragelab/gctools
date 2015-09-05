@@ -2,6 +2,8 @@
 {
   # Location of repository
   "boards": "boards",
+  "toolwidth": 0.1,
+  "penetrate": 127.0,
   # Panel definitions
   "panels": {
     "small_full": {
