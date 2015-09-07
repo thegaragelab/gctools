@@ -550,16 +550,26 @@ if __name__ == "__main__":
   # Load boards
   pcbs = dict()
   boards = list()
+  count = None
   for name in args:
+    havePCB = True
     if not pcbs.has_key(name):
       try:
         pcbs[name] = PCB(name)
       except Exception, ex:
-        LOG.FATAL(str(ex))
-    board = pcbs[name].getBoard()
-    if not panel.willFit(board):
-      LOG.FATAL("Board %s will not fit on this panel" % name)
-    boards.append(board)
+        # See if it is an integer count
+        try:
+          count = int(name)
+          havePCB = False
+        except:
+          LOG.FATAL(str(ex))
+    if havePCB:
+      board = pcbs[name].getBoard()
+      if not panel.willFit(board):
+        LOG.FATAL("Board %s will not fit on this panel" % name)
+      for i in range(count):
+        boards.append(board)
+      count = 1
   if len(boards) == 0:
     LOG.FATAL("No boards specified on command line")
   # Make sure they can reasonably fit
