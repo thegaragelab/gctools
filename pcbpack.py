@@ -550,7 +550,7 @@ if __name__ == "__main__":
   # Load boards
   pcbs = dict()
   boards = list()
-  count = None
+  count = 1
   for name in args:
     havePCB = True
     if not pcbs.has_key(name):
