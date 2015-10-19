@@ -295,8 +295,9 @@ class PCB:
     if options.pads:
       if drills is not None:
         for diam in drills.keys():
-          for x, y in drills[diam]:
-            self.bottom.circle(x, y, (diam - CONFIG['toolwidth']) / 2, self.bottom.minz, self.bottom.maxz, step = 0.254)
+          if diam >= 1.0: # Holes < 1.0 mm don't need the outline
+            for x, y in drills[diam]:
+              self.bottom.circle(x, y, (diam - CONFIG['toolwidth']) / 2, self.bottom.minz, self.bottom.maxz, step = 0.254)
     self.bottom = self.bottom.clone(Flip(xflip = self.midpoint), Translate(self.dx, self.dy))
     # Generate an outline as well (to avoid tearing)
     delta = abs(max(self.dx, self.dy)) / 2
