@@ -134,3 +134,19 @@ class ZLevel(Filter):
     # All done
     return command
 
+class FeedRate(Filter):
+  """ Adjust the cutting feed rate
+  """
+
+  def __init__(self, feedrate):
+    self.feedrate = feedrate
+
+  def apply(self, command):
+    # Is it a cutting operation ?
+    if not command.command in ("G01", "G02", "G03"):
+      return command
+    # Is a feed rate set ?
+    if command.F is not None:
+      command.F = self.feedrate
+    return command
+

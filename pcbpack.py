@@ -533,6 +533,7 @@ if __name__ == "__main__":
   parser.add_option("-c", "--cut", action="store", type="float", dest="pcbcut")
   parser.add_option("-s", "--no-pads", action="store_false", default=True, dest="pads")
   parser.add_option("-m", "--merge", action="store_true", default=False, dest="merge")
+  parser.add_option("-f", "--feed", action="store", type="float", dest="feedrate")
   options, args = parser.parse_args()
   # Check for required options
   for required in ("output", "panel"):
@@ -608,6 +609,12 @@ if __name__ == "__main__":
     for diam in drills.keys():
       LOG.INFO("  Drill (%0.1fmm)" % diam)
       drills[diam] = optimise(drills[diam])
+  # Adjust the feed rate if required
+  feedrate = getattr(options, "feedrate")
+  if feedrate is not None:
+    flt = FeedRate(feedrate)
+    top = top.clone(flt)
+    bottom = bottom.clone(flt)
   # Save all the main files
   filenames = list()
   settings = getSettings(CONTROL, options)
