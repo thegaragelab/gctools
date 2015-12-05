@@ -534,6 +534,7 @@ if __name__ == "__main__":
   parser.add_option("-s", "--no-pads", action="store_false", default=True, dest="pads")
   parser.add_option("-m", "--merge", action="store_true", default=False, dest="merge")
   parser.add_option("-f", "--feed", action="store", type="float", dest="feedrate")
+  parser.add_option("-r", "--drill", action="store", type="float", dest="drilling")
   options, args = parser.parse_args()
   # Check for required options
   for required in ("output", "panel"):
@@ -612,7 +613,7 @@ if __name__ == "__main__":
   # Adjust the feed rate if required
   feedrate = getattr(options, "feedrate")
   if feedrate is not None:
-    flt = FeedRate(feedrate)
+    flt = FeedRate(cutting = feedrate)
     top = top.clone(flt)
     bottom = bottom.clone(flt)
   # Save all the main files
@@ -631,9 +632,16 @@ if __name__ == "__main__":
       gcode.render(splitext(filename)[0] + ".png")
   # Save the drill files
   index = 3
+  # Adjust the feed rate if required
+  feedrate = getattr(options, "drilling")
+  flt = None
+  if feedrate is not None:
+    flt = FeedRate(drilling = feedrate)
   for diam in sorted(drills.keys()):
     # Correct arcs and adjust safe/cutting depths
     drills[diam] = drills[diam].clone(CorrectArc(), ZLevel(safe = settings['safe'], cut = settings['pcbcut']))
+    if flt is not None:
+      drills[diam] = drills[diam].clone(flt)
     # Write the file
     filename = "%s_%02d_drill_%0.1f.ngc" % (options.output, index, float(diam))
     filenames.append(filename)

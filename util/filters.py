@@ -138,15 +138,22 @@ class FeedRate(Filter):
   """ Adjust the cutting feed rate
   """
 
-  def __init__(self, feedrate):
-    self.feedrate = feedrate
+  def __init__(self, cutting = None, drilling = None):
+    self.cutting = cutting
+    self.drilling = drilling
 
   def apply(self, command):
     # Is it a cutting operation ?
     if not command.command in ("G01", "G02", "G03"):
       return command
-    # Is a feed rate set ?
-    if command.F is not None:
-      command.F = self.feedrate
+    # Are we drilling?
+    if command.Z is not None:
+      # Is a feed rate set ?
+      if (command.F is not None) and (self.drilling is not None):
+        command.F = self.drilling
+    elif (command.X is not None) or (command.Y is not None):
+      # Is a feed rate set ?
+      if (command.F is not None) and (self.cutting is not None):
+        command.F = self.cutting
     return command
 
